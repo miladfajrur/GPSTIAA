@@ -53,6 +53,9 @@ export default function Dashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
 
+  // Greeting Modal State
+  const [greetingMessage, setGreetingMessage] = useState<string | null>(null);
+
   useEffect(() => {
     const hasGreeted = sessionStorage.getItem(`greeted_${user?.username}`);
     if (user?.username && !hasGreeted) {
@@ -67,7 +70,7 @@ export default function Dashboard() {
       else if (user.username === "fajrur") message = `Selamat ${time} Fajrur`;
       else if (user.username === "anabk") message = `Selamat ${time} Dr. Ana Budi Kristiani, S.Sn., M.M`;
 
-      addToast(message, "success");
+      setGreetingMessage(message);
       sessionStorage.setItem(`greeted_${user.username}`, "true");
     }
   }, [user]); // Run once on user change
@@ -404,7 +407,9 @@ export default function Dashboard() {
                 </div>
                 <div className="truncate">
                   <p className="text-sm font-medium truncate">{user?.username}</p>
-                  <p className="text-xs opacity-50">Administrator</p>
+                  <p className="text-xs opacity-50">
+                    {user?.username === 'fajrur' ? 'Pemilik Utama' : 'Administrator'}
+                  </p>
                 </div>
               </div>
               <button onClick={logout} className="p-2 text-red-400 hover:text-red-300 transition-colors focus:outline-none shrink-0" title="Keluar">
@@ -779,7 +784,9 @@ export default function Dashboard() {
                       <p className="font-semibold text-slate-800 dark:text-slate-100">Nama Pengguna</p>
                       <p className="text-sm text-slate-500 dark:text-slate-400">{user?.username}</p>
                     </div>
-                    <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 text-xs font-bold rounded-full">Administrator</span>
+                    <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 text-xs font-bold rounded-full">
+                      {user?.username === 'fajrur' ? 'Pemilik Utama' : 'Administrator'}
+                    </span>
                   </div>
                 </div>
 
@@ -873,6 +880,28 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {/* Full Screen Greeting Modal */}
+      {greetingMessage && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-500">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-[0_20px_50px_rgba(8,_112,_184,_0.2)] max-w-lg w-full p-12 text-center flex flex-col items-center animate-in zoom-in-95 duration-500 border border-slate-100 dark:border-slate-700">
+            <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 rounded-full flex items-center justify-center mb-8 shadow-inner">
+              <span className="text-4xl">👋</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-serif font-medium tracking-tight text-slate-800 dark:text-slate-100 mb-8 leading-snug">
+              <span className="opacity-90">{greetingMessage.split(' ').slice(0, 2).join(' ')}</span>
+              <br />
+              <span className="font-semibold text-blue-700 dark:text-blue-400">{greetingMessage.split(' ').slice(2).join(' ')}</span>
+            </h2>
+            <button
+              onClick={() => setGreetingMessage(null)}
+              className="w-full sm:w-auto px-12 py-3.5 text-base font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-full transition-all hover:scale-105 active:scale-95 focus:outline-none shadow-lg shadow-blue-600/30 tracking-wide"
+            >
+              Oke, Lanjutkan
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
