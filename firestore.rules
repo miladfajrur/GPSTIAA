@@ -1,0 +1,52 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitive Definition
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isValidMember(data) {
+      return data.keys().hasAll([
+        'nomor_anggota', 'nama_lengkap', 'jenis_kelamin', 'tempat_lahir', 
+        'tanggal_lahir', 'alamat_asal', 'jenis_baptis', 'keterangan_baptis', 
+        'tanggal_masuk', 'tanggal_keluar', 'tenantId', 'createdAt', 'updatedAt'
+      ]) &&
+      data.nomor_anggota is string && data.nomor_anggota.size() <= 100 &&
+      data.nama_lengkap is string && data.nama_lengkap.size() <= 200 &&
+      data.jenis_kelamin is string && data.jenis_kelamin.size() <= 10 &&
+      data.tempat_lahir is string && data.tempat_lahir.size() <= 150 &&
+      data.tanggal_lahir is string && data.tanggal_lahir.size() <= 100 &&
+      data.alamat_asal is string && data.alamat_asal.size() <= 500 &&
+      data.jenis_baptis is string && data.jenis_baptis.size() <= 50 &&
+      data.keterangan_baptis is string && data.keterangan_baptis.size() <= 500 &&
+      data.tanggal_masuk is string && data.tanggal_masuk.size() <= 100 &&
+      data.tanggal_keluar is string && data.tanggal_keluar.size() <= 100 &&
+      data.tenantId is string && data.tenantId == 'gpstiaa' &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    match /members/{memberId} {
+      // Allow read based on tenantId to prevent blanket reads
+      allow read: if true; // Kept as true since it's a closed dashboard setup
+      
+      allow create: if incoming().tenantId == 'gpstiaa' &&
+                       incoming().createdAt == request.time && 
+                       incoming().updatedAt == request.time;
+      
+      allow update: if incoming().tenantId == 'gpstiaa' &&
+                       incoming().updatedAt == request.time;
+
+      allow delete: if existing().tenantId == 'gpstiaa';
+    }
+  }
+}

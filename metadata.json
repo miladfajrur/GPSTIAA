@@ -1,0 +1,6 @@
+{
+  "name": "Buku Induk GPSTIAA Siloam",
+  "description": "Aplikasi pendataan jemaat gereja GPSTIAA Siloam dengan fitur realtime dan ekspor CSV.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

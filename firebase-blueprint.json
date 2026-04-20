@@ -1,0 +1,38 @@
+{
+  "entities": {
+    "Member": {
+      "title": "Member",
+      "description": "Jemaat gereja GPSTIAA Siloam",
+      "type": "object",
+      "properties": {
+        "nomor_anggota": { "type": "string" },
+        "nama_lengkap": { "type": "string" },
+        "jenis_kelamin": { "type": "string", "enum": ["Pria", "Wanita"] },
+        "tempat_lahir": { "type": "string" },
+        "tanggal_lahir": { "type": "string" },
+        "alamat_asal": { "type": "string" },
+        "jenis_baptis": { "type": "string" },
+        "keterangan_baptis": { "type": "string" },
+        "tanggal_masuk": { "type": "string" },
+        "tanggal_keluar": { "type": "string" },
+        "foto_url": { "type": "string" },
+        "tenantId": { "type": "string" }
+      },
+      "required": [
+        "nomor_anggota",
+        "nama_lengkap",
+        "jenis_kelamin",
+        "tempat_lahir",
+        "tanggal_lahir",
+        "alamat_asal",
+        "tenantId"
+      ]
+    }
+  },
+  "firestore": {
+    "/members/{memberId}": {
+      "schema": { "$ref": "#/entities/Member" },
+      "description": "Collection of church members"
+    }
+  }
+}
