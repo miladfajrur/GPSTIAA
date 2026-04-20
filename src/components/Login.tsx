@@ -10,8 +10,9 @@ export default function Login() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (
-      (username === "gpstiaa" && password === "gpstiaa") ||
-      (username === "fajrur" && password === "fajrur")
+      (username === "gpsttiaa" && password === "gpttiaa") ||
+      (username === "fajrur" && password === "fajrur") ||
+      (username === "anakbk" && password === "anabk")
     ) {
       login(username);
     } else {

@@ -25,6 +25,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
+    if (user) {
+      sessionStorage.removeItem(`greeted_${user.username}`);
+    }
     setUser(null);
     localStorage.removeItem("gpstiaa_user");
   };

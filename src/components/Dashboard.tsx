@@ -54,6 +54,25 @@ export default function Dashboard() {
   const itemsPerPage = 15;
 
   useEffect(() => {
+    const hasGreeted = sessionStorage.getItem(`greeted_${user?.username}`);
+    if (user?.username && !hasGreeted) {
+      const hour = new Date().getHours();
+      let time = "Malam";
+      if (hour >= 3 && hour < 11) time = "Pagi";
+      else if (hour >= 11 && hour < 15) time = "Siang";
+      else if (hour >= 15 && hour < 18) time = "Sore";
+      
+      let message = `Selamat ${time} ${user.username}`;
+      if (user.username === "gpsttiaa") message = `Selamat ${time} admin GPSTTIAA`;
+      else if (user.username === "fajrur") message = `Selamat ${time} Fajrur`;
+      else if (user.username === "anabk") message = `Selamat ${time} Dr. Ana Budi Kristiani, S.Sn., M.M`;
+
+      addToast(message, "success");
+      sessionStorage.setItem(`greeted_${user.username}`, "true");
+    }
+  }, [user]); // Run once on user change
+
+  useEffect(() => {
     const q = query(
       collection(db, "members"),
       where("tenantId", "==", "gpstiaa"),
