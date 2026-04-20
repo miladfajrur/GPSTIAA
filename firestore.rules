@@ -48,5 +48,15 @@ service cloud.firestore {
 
       allow delete: if existing().tenantId == 'gpstiaa';
     }
+
+    match /weekly_reports/{reportId} {
+      allow read: if true;
+      allow create: if incoming().tenantId == 'gpstiaa' &&
+                       incoming().createdAt == request.time && 
+                       incoming().updatedAt == request.time;
+      allow update: if incoming().tenantId == 'gpstiaa' &&
+                       incoming().updatedAt == request.time;
+      allow delete: if existing().tenantId == 'gpstiaa';
+    }
   }
 }

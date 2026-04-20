@@ -20,3 +20,21 @@ export interface Member {
 export type AuthUser = {
   username: string;
 };
+
+export interface WeeklyReport {
+  id?: string;
+  tenantId: string;
+  tanggal_ibadah: string;
+  nama_ibadah: string;
+  kehadiran_dewasa: number;
+  kehadiran_pemuda: number;
+  kehadiran_anak: number;
+  persembahan_umum: number;
+  perpuluhan: number;
+  diakonia: number;
+  pemasukan_lainnya: number;
+  keterangan: string;
+  createdAt?: any;
+  updatedAt?: any;
+}
+

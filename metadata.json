@@ -1,6 +1,6 @@
 {
-  "name": "Buku Induk GPSTIAA Siloam",
-  "description": "Aplikasi pendataan jemaat gereja GPSTIAA Siloam dengan fitur realtime dan ekspor CSV.",
+  "name": "Buku Induk GPSTTIAA Siloam",
+  "description": "Aplikasi pendataan jemaat gereja GPSTTIAA Siloam dengan fitur realtime dan ekspor CSV.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

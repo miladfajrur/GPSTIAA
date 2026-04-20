@@ -20,8 +20,8 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-900">
+      <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-800 p-8 shadow-xl">
         <div className="mb-8 flex flex-col items-center">
           <img
             src="https://i.ibb.co.com/Xfg0zs6D/GPSTIAA-LOGO.png"
@@ -29,9 +29,9 @@ export default function Login() {
             className="h-24 w-auto object-contain"
             referrerPolicy="no-referrer"
           />
-          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-slate-900">
+          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
             Sistem Pendataan <br />
-            <span className="text-blue-800">GPSTIAA Siloam</span>
+            <span className="text-blue-800 dark:text-blue-400">GPSTIAA Siloam</span>
           </h2>
         </div>
 
@@ -45,7 +45,7 @@ export default function Login() {
           <div>
             <label
               htmlFor="username"
-              className="block text-sm font-medium text-slate-700"
+              className="block text-sm font-medium text-slate-700 dark:text-slate-300"
             >
               Akun / Username
             </label>
@@ -55,7 +55,7 @@ export default function Login() {
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 sm:text-sm"
+              className="mt-2 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 placeholder-slate-400 dark:placeholder-slate-500 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 sm:text-sm"
               placeholder="Masukkan akun Anda"
             />
           </div>
@@ -63,7 +63,7 @@ export default function Login() {
           <div>
             <label
               htmlFor="password"
-              className="block text-sm font-medium text-slate-700"
+              className="block text-sm font-medium text-slate-700 dark:text-slate-300"
             >
               Password
             </label>
@@ -73,7 +73,7 @@ export default function Login() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 sm:text-sm"
+              className="mt-2 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 placeholder-slate-400 dark:placeholder-slate-500 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 sm:text-sm"
               placeholder="Masukkan password Anda"
             />
           </div>

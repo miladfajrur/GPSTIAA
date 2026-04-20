@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useRef } from "react";
 import { collection, onSnapshot, query, setDoc, doc, deleteDoc, serverTimestamp, orderBy, where } from "firebase/firestore";
 import Papa from "papaparse";
-import { Download, Plus, Search, LogOut, Edit2, Trash2, Filter, Users, PieChart as PieChartIcon, MapPin, Settings, Upload, Menu } from "lucide-react";
+import { Download, Plus, Search, LogOut, Edit2, Trash2, Filter, Users, PieChart as PieChartIcon, MapPin, Settings, Upload, Menu, UserCheck } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 import { db } from "../lib/firebase";
 import { useAuth } from "../AuthContext";
+import { useTheme } from "../ThemeContext";
 import { Member } from "../types";
 import MemberModal from "./MemberModal";
+import WeeklyReportsPanel from "./WeeklyReportsPanel";
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
+  const { isDarkMode, toggleDarkMode } = useTheme();
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -219,6 +222,13 @@ export default function Dashboard() {
         Data Anggota
       </button>
       <button 
+        onClick={() => setActiveTab("reports")}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'reports' ? 'bg-white bg-opacity-10 opacity-100' : 'opacity-60 hover:opacity-100'}`}
+      >
+        {activeTab === 'reports' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <UserCheck className="w-4 h-4" />}
+        Data Kebaktian
+      </button>
+      <button 
         onClick={() => setActiveTab("stats")}
         className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'stats' ? 'bg-white bg-opacity-10 opacity-100' : 'opacity-60 hover:opacity-100'}`}
       >
@@ -243,8 +253,8 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="flex h-screen w-full font-sans text-slate-800 overflow-hidden bg-slate-50">
-      <aside className={`bg-slate-900 text-white flex-shrink-0 overflow-hidden transition-all duration-300 ease-in-out ${isSidebarOpen ? "w-64" : "w-0"}`}>
+    <div className={`flex h-screen w-full font-sans text-slate-800 dark:text-slate-100 overflow-hidden bg-slate-50 dark:bg-slate-900 ${isDarkMode ? 'dark' : ''}`}>
+      <aside className={`bg-slate-900 dark:bg-slate-950 text-white flex-shrink-0 overflow-hidden transition-all duration-300 ease-in-out ${isSidebarOpen ? "w-64" : "w-0"}`}>
         <div className="w-64 p-6 h-full flex flex-col">
           <div className="flex items-center gap-3 mb-10">
             <div className="bg-white p-1 rounded-md">
@@ -277,18 +287,19 @@ export default function Dashboard() {
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col relative overflow-hidden bg-slate-50">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0">
+      <main className="flex-1 flex flex-col relative overflow-hidden bg-slate-50 dark:bg-slate-900">
+        <header className="h-16 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-6 shrink-0">
           <div className="flex items-center gap-4 h-full">
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
-              className="p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg hover:text-slate-800 transition-colors focus:outline-none"
+              className="p-2 -ml-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg hover:text-slate-800 dark:hover:text-slate-200 transition-colors focus:outline-none"
               title="Toggle Sidebar"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <h2 className="font-semibold text-lg text-slate-800">
+            <h2 className="font-semibold text-lg text-slate-800 dark:text-slate-100">
               {activeTab === 'members' && "Data Anggota"}
+              {activeTab === 'reports' && "Laporan Mingguan"}
               {activeTab === 'stats' && "Statistik Jemaat"}
               {activeTab === 'map' && "Pemetaan Jemaat"}
               {activeTab === 'settings' && "Pengaturan Sistem"}
@@ -359,15 +370,15 @@ export default function Dashboard() {
               <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1),0_8px_10px_-6px_rgba(0,0,0,0.1)] flex flex-col min-h-0">
                 <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap justify-between items-center shrink-0 gap-3">
                   <div className="flex flex-wrap gap-2">
-                    <input
+                      <input
                       type="text"
                       placeholder="Cari nama, no. hp, atau alamat..."
-                      className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 bg-white w-64 outline-none focus:ring-1 focus:ring-blue-500 shadow-sm"
+                      className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 w-64 outline-none focus:ring-1 focus:ring-blue-500 shadow-sm"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                     <select
-                      className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white outline-none focus:ring-1 focus:ring-blue-500 shadow-sm"
+                      className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500 shadow-sm"
                       value={genderFilter}
                       onChange={(e) => setGenderFilter(e.target.value)}
                     >
@@ -376,7 +387,7 @@ export default function Dashboard() {
                       <option value="Wanita">Wanita</option>
                     </select>
                     <select
-                      className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white outline-none focus:ring-1 focus:ring-blue-500 shadow-sm"
+                      className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500 shadow-sm"
                       value={baptisFilter}
                       onChange={(e) => setBaptisFilter(e.target.value)}
                     >
@@ -386,7 +397,7 @@ export default function Dashboard() {
                       <option value="Baptis Dewasa">Baptis Dewasa</option>
                     </select>
                     <select
-                      className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white outline-none focus:ring-1 focus:ring-blue-500 shadow-sm"
+                      className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500 shadow-sm"
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value)}
                     >
@@ -534,6 +545,10 @@ export default function Dashboard() {
             </>
           )}
 
+          {activeTab === 'reports' && (
+            <WeeklyReportsPanel />
+          )}
+
           {activeTab === 'stats' && (
             <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1),0_8px_10px_-6px_rgba(0,0,0,0.1)] p-6 overflow-y-auto">
               <h2 className="text-xl font-bold text-slate-800 mb-6">Statistik Jemaat</h2>
@@ -615,43 +630,46 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'settings' && (
-            <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1),0_8px_10px_-6px_rgba(0,0,0,0.1)] p-6 overflow-y-auto">
+            <div className="flex-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1),0_8px_10px_-6px_rgba(0,0,0,0.1)] p-6 overflow-y-auto">
               <div className="max-w-xl mx-auto space-y-8">
                 <div>
-                  <h2 className="text-xl font-bold text-slate-800 mb-4">Pengaturan Sistem</h2>
-                  <p className="text-sm text-slate-500 mb-6">Kelola preferensi akun dan aplikasi Buku Induk GPSTIAA Siloam.</p>
+                  <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4">Pengaturan Sistem</h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Kelola preferensi akun dan aplikasi Buku Induk GPSTIAA Siloam.</p>
                 </div>
                 
                 <div className="space-y-4">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">Informasi Akun</h3>
-                  <div className="flex justify-between items-center p-4 bg-slate-50 rounded-lg border border-slate-200">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-700 pb-2">Informasi Akun</h3>
+                  <div className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
                     <div>
-                      <p className="font-semibold text-slate-800">Nama Pengguna</p>
-                      <p className="text-sm text-slate-500">{user?.username}</p>
+                      <p className="font-semibold text-slate-800 dark:text-slate-100">Nama Pengguna</p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">{user?.username}</p>
                     </div>
-                    <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-full">Administrator</span>
+                    <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 text-xs font-bold rounded-full">Administrator</span>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">Preferensi Tampilan</h3>
-                  <div className="flex justify-between items-center p-4 bg-slate-50 rounded-lg border border-slate-200">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-700 pb-2">Preferensi Tampilan</h3>
+                  <div className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
                     <div>
-                      <p className="font-semibold text-slate-800">Tema Gelap (Dark Mode)</p>
-                      <p className="text-xs text-slate-500">Beralih ke tampilan gelap (Segera Hadir)</p>
+                      <p className="font-semibold text-slate-800 dark:text-slate-100">Tema Gelap (Dark Mode)</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Beralih ke tampilan gelap untuk kenyamanan mata</p>
                     </div>
-                    <div className="w-12 h-6 bg-slate-200 rounded-full relative cursor-not-allowed opacity-50">
-                      <div className="w-4 h-4 bg-white rounded-full absolute left-1 top-1"></div>
-                    </div>
+                    <button 
+                      onClick={toggleDarkMode}
+                      className={`w-12 h-6 rounded-full relative transition-colors focus:outline-none ${isDarkMode ? 'bg-blue-600' : 'bg-slate-300'}`}
+                    >
+                      <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${isDarkMode ? 'translate-x-7' : 'translate-x-1'}`}></div>
+                    </button>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">Sistem Eksternal</h3>
-                  <div className="flex justify-between items-center p-4 bg-slate-50 rounded-lg border border-slate-200">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-700 pb-2">Sistem Eksternal</h3>
+                  <div className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
                     <div>
-                      <p className="font-semibold text-slate-800">Status Sinkronisasi Firebase</p>
-                      <p className="text-xs text-slate-500">Database Firestore Real-time</p>
+                      <p className="font-semibold text-slate-800 dark:text-slate-100">Status Sinkronisasi Firebase</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Database Firestore Real-time</p>
                     </div>
                     <span className="flex items-center gap-2 text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Terhubung
@@ -674,15 +692,15 @@ export default function Dashboard() {
       {/* Delete Confirmation Modal */}
       {memberToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200">
-            <h3 className="text-lg font-bold text-slate-800 mb-2">Konfirmasi Penghapusan</h3>
-            <p className="text-sm text-slate-600 mb-6">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">Konfirmasi Penghapusan</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
               Apakah Anda yakin ingin menghapus data jemaat ini? Tindakan ini tidak dapat dibatalkan.
             </p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setMemberToDelete(null)}
-                className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors focus:outline-none"
+                className="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors focus:outline-none"
               >
                 Batal
               </button>
