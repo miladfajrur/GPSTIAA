@@ -46,7 +46,7 @@ service cloud.firestore {
       allow update: if incoming().tenantId == 'gpstiaa' &&
                        incoming().updatedAt == request.time;
 
-      allow delete: if existing().tenantId == 'gpstiaa';
+      allow delete: if true;
     }
 
     match /weekly_reports/{reportId} {
@@ -56,7 +56,7 @@ service cloud.firestore {
                        incoming().updatedAt == request.time;
       allow update: if incoming().tenantId == 'gpstiaa' &&
                        incoming().updatedAt == request.time;
-      allow delete: if existing().tenantId == 'gpstiaa';
+      allow delete: if true;
     }
   }
 }

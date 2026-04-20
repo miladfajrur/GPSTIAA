@@ -113,8 +113,10 @@ export default function Dashboard() {
     if (memberToDelete) {
       try {
         await deleteDoc(doc(db, "members", memberToDelete));
+        addToast("Data jemaat berhasil dihapus.", 'success');
       } catch (error) {
         console.error("Error deleting member:", error);
+        addToast("Gagal menghapus data jemaat. Periksa hak akses Anda.", 'error');
       } finally {
         setMemberToDelete(null);
       }
