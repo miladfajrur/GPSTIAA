@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { collection, onSnapshot, query, setDoc, doc, deleteDoc, serverTimestamp, orderBy, where } from "firebase/firestore";
 import Papa from "papaparse";
-import { Download, Plus, Search, LogOut, Edit2, Trash2, Filter, Users, PieChart as PieChartIcon, MapPin, Settings, Upload, Menu, UserCheck } from "lucide-react";
+import { Download, Plus, Search, LogOut, Edit2, Trash2, Filter, Users, PieChart as PieChartIcon, MapPin, Settings, Upload, Menu, UserCheck, CheckCircle, AlertCircle, Info, X } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 import { db } from "../lib/firebase";
@@ -11,11 +11,28 @@ import { Member } from "../types";
 import MemberModal from "./MemberModal";
 import WeeklyReportsPanel from "./WeeklyReportsPanel";
 
+export type ToastMessage = {
+  id: number;
+  message: string;
+  type: 'success' | 'error' | 'info';
+};
+
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const { isDarkMode, toggleDarkMode } = useTheme();
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Toast state
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const addToast = (message: string, type: 'success' | 'error' | 'info') => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000);
+  };
+  const isInitialLoad = useRef(true);
   
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -44,12 +61,27 @@ export default function Dashboard() {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      let newRemoteCount = 0;
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added" && !isInitialLoad.current && !change.doc.metadata.hasPendingWrites) {
+          newRemoteCount++;
+        }
+      });
+
+      if (newRemoteCount > 0) {
+        addToast(`${newRemoteCount} data jemaat baru ditambahkan tersinkronisasi.`, 'info');
+      }
+
       const data: Member[] = [];
       snapshot.forEach((doc) => {
         data.push({ id: doc.id, ...doc.data() } as Member);
       });
       setMembers(data);
       setIsLoading(false);
+
+      if (isInitialLoad.current) {
+        isInitialLoad.current = false;
+      }
     }, (error) => {
       console.error("Firestore error:", error);
       setIsLoading(false);
@@ -69,6 +101,8 @@ export default function Dashboard() {
       createdAt: isNew ? serverTimestamp() : dataToSave.createdAt,
       updatedAt: serverTimestamp(),
     }, { merge: false }); // Using merge: false to enforce strict schema replacement
+
+    addToast(`Data jemaat ${dataToSave.nama_lengkap} berhasil ${isNew ? 'ditambahkan' : 'diperbarui'}!`, 'success');
   };
 
   const handleDeleteClick = (id: string) => {
@@ -116,6 +150,34 @@ export default function Dashboard() {
     document.body.removeChild(link);
   };
 
+  const handleDownloadTemplate = () => {
+    const templateData = [{
+      "Nomor Anggota": "1",
+      "Nama Lengkap": "Nama Contoh",
+      "Jenis Kelamin": "Pria",
+      "Tempat Lahir": "Jakarta",
+      "Tanggal Lahir": "1990-01-01",
+      "No. Telp": "081234567890",
+      "Alamat Asal": "Jl. Contoh Alamat No. 123",
+      "Jenis Baptis": "Baptis Dewasa",
+      "Keterangan Baptis": "Contoh keterangan (bisa dikosongkan)",
+      "Tanggal Masuk": "2023-01-01",
+      "Tanggal Keluar": "",
+      "Link Foto": ""
+    }];
+    
+    const csv = Papa.unparse(templateData);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'Template_Impor_Jemaat.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleImportCSV = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -127,12 +189,40 @@ export default function Dashboard() {
       complete: async (results) => {
         try {
           const rows = results.data as any[];
-          let importedCount = 0;
-          for (const row of rows) {
+          const validMembers: Member[] = [];
+          const existingNomor = new Set(members.map(m => m.nomor_anggota).filter(n => n));
+          const currentCsvNomor = new Set<string>();
+          const errorMessages: string[] = [];
+
+          for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const rowNum = i + 2; // +1 zero-index, +1 header row
+            
+            const nomor_anggota = (row["Nomor Anggota"] || "").toString().trim();
+            const nama_lengkap = (row["Nama Lengkap"] || "").toString().trim();
+            const jenis_kelamin = (row["Jenis Kelamin"] || "").toString().trim();
+            
+            if (!nomor_anggota || !nama_lengkap || !jenis_kelamin) {
+               errorMessages.push(`Baris ${rowNum}: Kolom "Nomor Anggota", "Nama Lengkap", dan "Jenis Kelamin" wajib diisi.`);
+               continue;
+            }
+
+            if (existingNomor.has(nomor_anggota)) {
+              errorMessages.push(`Baris ${rowNum}: Nomor Anggota '${nomor_anggota}' sudah terdaftar di sistem.`);
+              continue;
+            }
+
+            if (currentCsvNomor.has(nomor_anggota)) {
+              errorMessages.push(`Baris ${rowNum}: Nomor Anggota '${nomor_anggota}' duplikat di dalam baris CSV.`);
+              continue;
+            }
+
+            currentCsvNomor.add(nomor_anggota);
+
             const memberData: Member = {
-              nomor_anggota: row["Nomor Anggota"] || "",
-              nama_lengkap: row["Nama Lengkap"] || "",
-              jenis_kelamin: (row["Jenis Kelamin"] === "Pria" || row["Jenis Kelamin"] === "Wanita") ? row["Jenis Kelamin"] : "",
+              nomor_anggota,
+              nama_lengkap,
+              jenis_kelamin: (jenis_kelamin === "Pria" || jenis_kelamin === "Wanita") ? jenis_kelamin : "",
               tempat_lahir: row["Tempat Lahir"] || "",
               tanggal_lahir: row["Tanggal Lahir"] || "",
               no_telp: row["No. Telp"] || "",
@@ -145,21 +235,38 @@ export default function Dashboard() {
               tenantId: "gpstiaa"
             };
 
-            // Basic validation
-            if (memberData.nama_lengkap) {
-              const docId = doc(collection(db, "members")).id;
-              await setDoc(doc(db, "members", docId), {
-                ...memberData,
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-              });
-              importedCount++;
-            }
+            validMembers.push(memberData);
           }
-          alert(`Impor data berhasil! ${importedCount} jemaat telah ditambahkan.`);
+
+          if (errorMessages.length > 0) {
+             const errorText = errorMessages.slice(0, 10).join("\n") + (errorMessages.length > 10 ? `\n...dan ${errorMessages.length - 10} kesalahan lainnya.` : "");
+             alert(`Impor dibatalkan karena ditemukan kesalahan pada data:\n\n${errorText}\n\nSilakan perbaiki file CSV Anda lalu coba lagi.`);
+             setIsImporting(false);
+             if (fileInputRef.current) fileInputRef.current.value = "";
+             return;
+          }
+
+          if (validMembers.length === 0) {
+             alert("Tidak ada data yang valid untuk diimpor.");
+             setIsImporting(false);
+             if (fileInputRef.current) fileInputRef.current.value = "";
+             return;
+          }
+
+          let importedCount = 0;
+          for (const memberData of validMembers) {
+            const docId = doc(collection(db, "members")).id;
+            await setDoc(doc(db, "members", docId), {
+              ...memberData,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            });
+            importedCount++;
+          }
+          addToast(`Impor data CSV berhasil! ${importedCount} jemaat telah ditambahkan.`, 'success');
         } catch (error) {
           console.error("Error importing:", error);
-          alert("Terjadi kesalahan saat menyimpan data impor ke server.");
+          addToast("Terjadi kesalahan saat menyimpan data impor ke server.", 'error');
         } finally {
           setIsImporting(false);
           if (fileInputRef.current) fileInputRef.current.value = "";
@@ -167,7 +274,7 @@ export default function Dashboard() {
       },
       error: (error) => {
         console.error("CSV Parse Error:", error);
-        alert("Gagal membaca file CSV.");
+        addToast("Gagal mengurai dan membaca file CSV.", 'error');
         setIsImporting(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
@@ -314,6 +421,13 @@ export default function Dashboard() {
                 onChange={handleImportCSV}
                 className="hidden"
               />
+              <button
+                onClick={handleDownloadTemplate}
+                className="bg-amber-100 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800 hover:bg-amber-200 dark:hover:bg-amber-800 text-amber-700 dark:text-amber-300 text-xs px-4 py-2 rounded font-semibold transition-colors flex items-center gap-2 focus:outline-none"
+                title="Unduh format template standar untuk mengimpor banyak tabel"
+              >
+                <Download className="h-4 w-4" /> Template CSV
+              </button>
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isImporting}
@@ -714,6 +828,30 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Toast Notifications */}
+      <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2">
+        {toasts.map(toast => (
+          <div 
+            key={toast.id} 
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg text-sm text-white animate-in slide-in-from-right-8 fade-in duration-300 pointer-events-auto ${
+              toast.type === 'success' ? 'bg-emerald-600' : 
+              toast.type === 'error' ? 'bg-red-600' : 'bg-blue-600'
+            }`}
+          >
+            {toast.type === 'success' && <CheckCircle className="w-5 h-5 shrink-0" />}
+            {toast.type === 'error' && <AlertCircle className="w-5 h-5 shrink-0" />}
+            {toast.type === 'info' && <Info className="w-5 h-5 shrink-0" />}
+            <span className="font-medium whitespace-pre-wrap">{toast.message}</span>
+            <button 
+              onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+              className="p-1 hover:bg-white/20 rounded-full transition-colors ml-2"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
