@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { collection, onSnapshot, query, setDoc, doc, deleteDoc, serverTimestamp, orderBy, where } from "firebase/firestore";
 import Papa from "papaparse";
-import { Download, Plus, Search, LogOut, Edit2, Trash2, Filter, Users, PieChart as PieChartIcon, MapPin, Settings, Upload, Menu, UserCheck, CheckCircle, AlertCircle, Info, X } from "lucide-react";
+import { Download, Plus, Search, LogOut, Edit2, Trash2, Filter, Users, PieChart as PieChartIcon, MapPin, Settings, Upload, Menu, UserCheck, CheckCircle, AlertCircle, Info, X, ChevronDown, MoreVertical, Gift, Bell, Eye } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 import { db } from "../lib/firebase";
@@ -9,6 +9,7 @@ import { useAuth } from "../AuthContext";
 import { useTheme } from "../ThemeContext";
 import { Member } from "../types";
 import MemberModal from "./MemberModal";
+import MemberViewModal from "./MemberViewModal";
 import WeeklyReportsPanel from "./WeeklyReportsPanel";
 
 export type ToastMessage = {
@@ -37,9 +38,21 @@ export default function Dashboard() {
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | undefined>(undefined);
+  
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [memberToView, setMemberToView] = useState<Member | null>(null);
+
   const [activeTab, setActiveTab] = useState("members"); // "members", "stats", "map", "settings"
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return true;
+  });
   const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
+
+  // Notification State
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
   // Import state
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -49,9 +62,104 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [genderFilter, setGenderFilter] = useState("");
   const [baptisFilter, setBaptisFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState(""); // Default to "Semua Status"
+  const [birthdayStatusFilter, setBirthdayStatusFilter] = useState("Aktif"); // Default to "Aktif" for Birthdays
   const [sortBy, setSortBy] = useState("nama_asc");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
+
+  // Get Days to Birthday Helper
+  const getDaysToBirthday = (birthDateStr: string) => {
+    if (!birthDateStr) return null;
+    const bDate = new Date(birthDateStr);
+    if (isNaN(bDate.getTime())) return null;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const nextBday = new Date(today.getFullYear(), bDate.getMonth(), bDate.getDate());
+    
+    if (nextBday.getTime() < today.getTime()) {
+      nextBday.setFullYear(today.getFullYear() + 1);
+    }
+    
+    // Check if it was exactly a leap year birthday that we should push to Mar 1 if not a leap year. JS Date handles Feb 29 on non-leap years as Mar 1.
+    
+    const diffTime = nextBday.getTime() - today.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+  
+  const hasNotifiedBirthdays = useRef(false);
+
+  useEffect(() => {
+    if (members.length > 0 && !hasNotifiedBirthdays.current && !isLoading) {
+      const todayBirthdays = members.filter(m => getDaysToBirthday(m.tanggal_lahir) === 0);
+      if (todayBirthdays.length > 0) {
+        const names = todayBirthdays.map(m => m.nama_lengkap).join(', ');
+        addToast(`🎉 Hari ini ulang tahun: ${names}!\nSelamat Ulang Tahun!`, 'info');
+        hasNotifiedBirthdays.current = true;
+      }
+    }
+  }, [members, isLoading]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.notification-container')) {
+        setIsNotificationOpen(false);
+      }
+    };
+
+    if (isNotificationOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isNotificationOpen]);
+
+  // Derived Notifications
+  const notifications = useMemo(() => {
+    const notifs = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // 1. Birthdays today
+    members.forEach(m => {
+      if (getDaysToBirthday(m.tanggal_lahir) === 0 && (!m.tanggal_keluar)) {
+        notifs.push({
+          id: `bday-${m.id}`,
+          type: 'birthday',
+          title: 'Ulang Tahun Hari Ini!',
+          message: `${m.nama_lengkap} berulang tahun hari ini.🎉`,
+          dateRef: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 7, 0, 0).getTime() // Virtual 7 AM
+        });
+      }
+    });
+
+    // 2. Recent additions (top 5)
+    members
+      .slice()
+      .filter(m => m.createdAt)
+      .sort((a, b) => {
+        const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0);
+        const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0);
+        return timeB - timeA;
+      })
+      .slice(0, 5)
+      .forEach(m => {
+        const time = m.createdAt?.toMillis ? m.createdAt.toMillis() : (m.createdAt?.seconds ? m.createdAt.seconds * 1000 : 0);
+        if (time > 0) {
+          notifs.push({
+            id: `new-${m.id}`,
+            type: 'new_data',
+            title: 'Data Berhasil Diinput',
+            message: `Data jemaat ${m.nama_lengkap} telah ditambahkan ke sistem.`,
+            dateRef: time
+          });
+        }
+      });
+
+    return notifs.sort((a, b) => b.dateRef - a.dateRef);
+  }, [members, getDaysToBirthday]);
 
   // Greeting Modal State
   const [greetingMessage, setGreetingMessage] = useState<string | null>(null);
@@ -305,76 +413,103 @@ export default function Dashboard() {
     });
   };
 
-  const filteredMembers = members.filter(m => {
-    const term = searchTerm.toLowerCase();
-    const noTelpSafe = m.no_telp || "";
-    const alamatSafe = m.alamat_asal || "";
-    
-    const matchesSearch = 
-      m.nama_lengkap.toLowerCase().includes(term) || 
-      m.nomor_anggota.toLowerCase().includes(term) ||
-      alamatSafe.toLowerCase().includes(term) ||
-      noTelpSafe.toLowerCase().includes(term);
-    
-    const matchesGender = genderFilter ? m.jenis_kelamin === genderFilter : true;
-    const matchesBaptis = baptisFilter ? m.jenis_baptis === baptisFilter : true;
-    
-    return matchesSearch && matchesGender && matchesBaptis;
-  }).sort((a, b) => {
-    switch (sortBy) {
-      case "nama_asc":
-        return a.nama_lengkap.localeCompare(b.nama_lengkap);
-      case "nama_desc":
-        return b.nama_lengkap.localeCompare(a.nama_lengkap);
-      case "tgl_masuk_desc":
-        return new Date(b.tanggal_masuk || 0).getTime() - new Date(a.tanggal_masuk || 0).getTime();
-      case "tgl_masuk_asc":
-        return new Date(a.tanggal_masuk || 0).getTime() - new Date(b.tanggal_masuk || 0).getTime();
-      default:
-        return 0;
-    }
-  });
+  const filteredMembers = useMemo(() => {
+    return members.filter(m => {
+      const term = searchTerm.toLowerCase();
+      const noTelpSafe = m.no_telp || "";
+      const alamatSafe = m.alamat_asal || "";
+      const noAnggotaSafe = m.nomor_anggota || "";
+      
+      const matchesSearch = 
+        m.nama_lengkap.toLowerCase().includes(term) || 
+        noAnggotaSafe.toLowerCase().includes(term) ||
+        alamatSafe.toLowerCase().includes(term) ||
+        noTelpSafe.toLowerCase().includes(term);
+      
+      const matchesGender = genderFilter ? m.jenis_kelamin === genderFilter : true;
+      const matchesBaptis = baptisFilter ? m.jenis_baptis === baptisFilter : true;
+      const matchesStatus = statusFilter === 'Aktif' ? !m.tanggal_keluar : statusFilter === 'Keluar' ? !!m.tanggal_keluar : true;
+      
+      return matchesSearch && matchesGender && matchesBaptis && matchesStatus;
+    }).sort((a, b) => {
+      const aNo = a.nomor_anggota || "";
+      const bNo = b.nomor_anggota || "";
+      
+      switch (sortBy) {
+        case "nama_asc":
+          return a.nama_lengkap.localeCompare(b.nama_lengkap);
+        case "nama_desc":
+          return b.nama_lengkap.localeCompare(a.nama_lengkap);
+        case "no_anggota_asc":
+          return (parseInt(aNo.split('/')[0]) || 0) - (parseInt(bNo.split('/')[0]) || 0);
+        case "no_anggota_desc":
+          return (parseInt(bNo.split('/')[0]) || 0) - (parseInt(aNo.split('/')[0]) || 0);
+        case "tgl_masuk_desc":
+          return new Date(b.tanggal_masuk || 0).getTime() - new Date(a.tanggal_masuk || 0).getTime();
+        case "tgl_masuk_asc":
+          return new Date(a.tanggal_masuk || 0).getTime() - new Date(b.tanggal_masuk || 0).getTime();
+        default:
+          return 0;
+      }
+    });
+  }, [members, searchTerm, genderFilter, baptisFilter, statusFilter, sortBy]);
 
   const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
-  const paginatedMembers = filteredMembers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const paginatedMembers = useMemo(() => {
+    return filteredMembers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  }, [filteredMembers, currentPage, itemsPerPage]);
 
   // Reset pagination when filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, genderFilter, baptisFilter, sortBy]);
+  }, [searchTerm, genderFilter, baptisFilter, statusFilter, sortBy]);
+
+  const handleTabClick = (tab: string) => {
+    setActiveTab(tab);
+    if (window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
+  };
 
   const renderNavLinks = () => (
     <>
       <button 
-        onClick={() => setActiveTab("members")}
+        onClick={() => handleTabClick("members")}
         className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'members' ? 'bg-white bg-opacity-10 opacity-100' : 'opacity-60 hover:opacity-100'}`}
       >
         {activeTab === 'members' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <Users className="w-4 h-4" />}
         Data Anggota
       </button>
       <button 
-        onClick={() => setActiveTab("reports")}
+        onClick={() => handleTabClick("birthdays")}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'birthdays' ? 'bg-white bg-opacity-10 opacity-100' : 'opacity-60 hover:opacity-100'}`}
+      >
+        {activeTab === 'birthdays' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <Gift className="w-4 h-4" />}
+        Ulang Tahun
+      </button>
+      <button 
+        onClick={() => handleTabClick("reports")}
         className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'reports' ? 'bg-white bg-opacity-10 opacity-100' : 'opacity-60 hover:opacity-100'}`}
       >
         {activeTab === 'reports' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <UserCheck className="w-4 h-4" />}
         Data Kebaktian
       </button>
       <button 
-        onClick={() => setActiveTab("stats")}
+        onClick={() => handleTabClick("stats")}
         className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'stats' ? 'bg-white bg-opacity-10 opacity-100' : 'opacity-60 hover:opacity-100'}`}
       >
         {activeTab === 'stats' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <PieChartIcon className="w-4 h-4" />}
         Statistik Jemaat
       </button>
       <button 
-        onClick={() => setActiveTab("map")}
+        onClick={() => handleTabClick("map")}
         className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'map' ? 'bg-white bg-opacity-10 opacity-100' : 'opacity-60 hover:opacity-100'}`}
       >
         {activeTab === 'map' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <MapPin className="w-4 h-4" />}
         Pemetaan Jemaat
       </button>
       <button 
-        onClick={() => setActiveTab("settings")}
+        onClick={() => handleTabClick("settings")}
         className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'settings' ? 'bg-white bg-opacity-10 opacity-100' : 'opacity-60 hover:opacity-100'}`}
       >
         {activeTab === 'settings' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <Settings className="w-4 h-4" />}
@@ -385,7 +520,16 @@ export default function Dashboard() {
 
   return (
     <div className={`flex h-screen w-full font-sans text-slate-800 dark:text-slate-100 overflow-hidden bg-slate-50 dark:bg-slate-900 ${isDarkMode ? 'dark' : ''}`}>
-      <aside className={`bg-slate-900 dark:bg-slate-950 text-white flex-shrink-0 overflow-hidden transition-all duration-300 ease-in-out ${isSidebarOpen ? "w-64" : "w-0"}`}>
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm md:hidden transition-opacity"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`fixed md:relative z-50 bg-slate-900 dark:bg-slate-950 text-white flex-shrink-0 h-full transition-all duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0 w-64" : "-translate-x-full md:translate-x-0 w-64 md:w-0"} md:overflow-hidden`}>
         <div className="w-64 p-6 h-full flex flex-col">
           <div className="flex items-center gap-3 mb-10">
             <div className="bg-white p-1 rounded-md">
@@ -395,6 +539,13 @@ export default function Dashboard() {
               <h1 className="text-xs font-bold leading-tight opacity-70 uppercase tracking-widest">Buku Induk</h1>
               <p className="text-sm font-semibold">GPSTIAA Siloam</p>
             </div>
+            {/* Mobile close button */}
+            <button 
+              className="md:hidden ml-auto p-1 text-slate-400 hover:text-white focus:outline-none"
+              onClick={() => setIsSidebarOpen(false)}
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
           <nav className="space-y-1 flex-1">
             {renderNavLinks()}
@@ -420,18 +571,19 @@ export default function Dashboard() {
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col relative overflow-hidden bg-slate-50 dark:bg-slate-900">
-        <header className="h-16 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-6 shrink-0">
-          <div className="flex items-center gap-4 h-full">
+      <main className="flex-1 flex flex-col relative overflow-hidden bg-slate-50 dark:bg-slate-900 w-full">
+        <header className="h-auto md:h-16 py-3 md:py-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row items-start md:items-center justify-between px-4 md:px-6 shrink-0 gap-3 md:gap-0">
+          <div className="flex items-center gap-3 w-full md:w-auto">
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
-              className="p-2 -ml-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg hover:text-slate-800 dark:hover:text-slate-200 transition-colors focus:outline-none"
+              className="p-1.5 md:p-2 -ml-1.5 md:-ml-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg hover:text-slate-800 dark:hover:text-slate-200 transition-colors focus:outline-none"
               title="Toggle Sidebar"
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="w-5 h-5 md:w-5 md:h-5" />
             </button>
-            <h2 className="font-semibold text-lg text-slate-800 dark:text-slate-100">
+            <h2 className="font-semibold text-base md:text-lg text-slate-800 dark:text-slate-100 truncate">
               {activeTab === 'members' && "Data Anggota"}
+              {activeTab === 'birthdays' && "Ulang Tahun Anggota"}
               {activeTab === 'reports' && "Laporan Mingguan"}
               {activeTab === 'stats' && "Statistik Jemaat"}
               {activeTab === 'map' && "Pemetaan Jemaat"}
@@ -439,7 +591,55 @@ export default function Dashboard() {
             </h2>
           </div>
           {activeTab === 'members' && (
-            <div className="flex flex-wrap items-center gap-4">
+            <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto justify-end">
+              
+              {/* Notification Bell */}
+              <div className="relative notification-container">
+                <button
+                  onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                  className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 p-2 md:px-3 md:py-2 rounded-lg transition-all flex items-center justify-center focus:outline-none shadow-sm relative"
+                >
+                  <Bell className="h-4 w-4 md:h-4 md:w-4" />
+                  {notifications.length > 0 && (
+                    <span className="absolute top-1.5 right-1.5 md:right-2.5 w-1.5 h-1.5 md:w-2 md:h-2 bg-red-500 rounded-full animate-pulse"></span>
+                  )}
+                </button>
+                
+                <div className={`absolute right-0 mt-2 w-72 md:w-80 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 transition-all duration-200 z-50 transform origin-top-right ${isNotificationOpen ? 'opacity-100 visible scale-100' : 'opacity-0 invisible scale-95'}`}>
+                  <div className="p-3 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Pusat Notifikasi</h3>
+                    <span className="bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 text-[10px] font-bold px-2 py-0.5 rounded-full">{notifications.length} Baru</span>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-6 text-center text-slate-500 dark:text-slate-400 text-xs">
+                        <Bell className="h-8 w-8 mx-auto -mt-2 mb-2 opacity-20" />
+                        Belum ada notifikasi
+                      </div>
+                    ) : (
+                      <div className="flex flex-col">
+                        {notifications.map((notif, idx) => (
+                          <div key={notif.id} className={`p-3 border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${idx === notifications.length - 1 ? 'border-none' : ''}`}>
+                            <div className="flex gap-3 items-start">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${notif.type === 'birthday' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
+                                {notif.type === 'birthday' ? <Gift className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                              </div>
+                              <div>
+                                <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">{notif.title}</h4>
+                                <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">{notif.message}</p>
+                                <span className="text-[9px] text-slate-400 dark:text-slate-500 mt-1 block">
+                                  {notif.type === 'birthday' ? 'Hari ini' : new Date(notif.dateRef).toLocaleDateString('id-ID', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'})}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <input
                 type="file"
                 accept=".csv"
@@ -447,37 +647,54 @@ export default function Dashboard() {
                 onChange={handleImportCSV}
                 className="hidden"
               />
-              <button
-                onClick={handleDownloadTemplate}
-                className="bg-amber-100 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800 hover:bg-amber-200 dark:hover:bg-amber-800 text-amber-700 dark:text-amber-300 text-xs px-4 py-2 rounded font-semibold transition-colors flex items-center gap-2 focus:outline-none"
-                title="Unduh format template standar untuk mengimpor banyak tabel"
-              >
-                <Download className="h-4 w-4" /> Template CSV
-              </button>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isImporting}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-4 py-2 rounded font-semibold transition-colors flex items-center gap-2 focus:outline-none disabled:opacity-50"
-              >
-                {isImporting ? (
-                  <span className="w-4 h-4 border-2 border-slate-400 border-t-slate-700 rounded-full animate-spin"></span>
-                ) : (
-                  <Upload className="h-4 w-4" />
-                )}
-                {isImporting ? "Mengimpor..." : "Impor CSV"}
-              </button>
-              <button
-                onClick={handleExportCSV}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-2 rounded font-semibold transition-colors flex items-center gap-2 focus:outline-none"
-              >
-                <span>📥</span> Unduh Excel
-              </button>
+              
+              <div className="relative group">
+                <button
+                  className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 focus:outline-none shadow-sm"
+                >
+                  Opsi Data <ChevronDown className="h-3.5 w-3.5 opacity-50 group-hover:rotate-180 transition-transform duration-200" />
+                </button>
+                
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 transform origin-top-right scale-95 group-hover:scale-100">
+                  <div className="p-1.5 flex flex-col gap-1">
+                    <button
+                      onClick={handleDownloadTemplate}
+                      className="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-md transition-colors flex items-center gap-2"
+                    >
+                      <Download className="h-3.5 w-3.5" /> Template CSV
+                    </button>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isImporting}
+                      className="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-md transition-colors flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {isImporting ? (
+                        <>
+                          <span className="w-3.5 h-3.5 border-2 border-slate-400 border-t-slate-700 rounded-full animate-spin shrink-0"></span> Mengimpor...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-3.5 w-3.5" /> Impor dari CSV
+                        </>
+                      )}
+                    </button>
+                    <div className="h-px bg-slate-100 dark:bg-slate-700/50 my-1"></div>
+                    <button
+                      onClick={handleExportCSV}
+                      className="w-full text-left px-3 py-2 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors flex items-center gap-2"
+                    >
+                      <span className="text-sm">📥</span> Unduh format Excel
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <button
                 onClick={() => {
                   setSelectedMember(undefined);
                   setIsModalOpen(true);
                 }}
-                className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2 rounded font-semibold transition-colors focus:outline-none"
+                className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-5 py-2 rounded-lg font-bold transition-all focus:outline-none shadow-sm shadow-blue-600/20 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0"
               >
                 + Tambah Data
               </button>
@@ -488,37 +705,37 @@ export default function Dashboard() {
         <div className="p-6 flex-1 flex flex-col gap-6 overflow-hidden">
           {activeTab === 'members' && (
             <>
-              <div className="grid grid-cols-4 gap-4 shrink-0">
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1),0_8px_10px_-6px_rgba(0,0,0,0.1)]">
-                  <p className="text-xs text-slate-500 font-medium uppercase">Total Anggota</p>
-                  <p className="text-2xl font-bold text-blue-900">{members.length}</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 shrink-0">
+                <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)]">
+                  <p className="text-[10px] md:text-xs text-slate-500 font-medium uppercase truncate">Total Anggota</p>
+                  <p className="text-xl md:text-2xl font-bold text-blue-900">{members.length}</p>
                 </div>
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1),0_8px_10px_-6px_rgba(0,0,0,0.1)]">
-                  <p className="text-xs text-slate-500 font-medium uppercase">Jemaat Pria</p>
-                  <p className="text-2xl font-bold text-blue-900">{members.filter(m => m.jenis_kelamin === 'Pria').length}</p>
+                <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)]">
+                  <p className="text-[10px] md:text-xs text-slate-500 font-medium uppercase truncate">Jemaat Pria</p>
+                  <p className="text-xl md:text-2xl font-bold text-blue-900">{members.filter(m => m.jenis_kelamin === 'Pria').length}</p>
                 </div>
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1),0_8px_10px_-6px_rgba(0,0,0,0.1)]">
-                  <p className="text-xs text-slate-500 font-medium uppercase">Jemaat Wanita</p>
-                  <p className="text-2xl font-bold text-blue-900">{members.filter(m => m.jenis_kelamin === 'Wanita').length}</p>
+                <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)]">
+                  <p className="text-[10px] md:text-xs text-slate-500 font-medium uppercase truncate">Jemaat Wanita</p>
+                  <p className="text-xl md:text-2xl font-bold text-blue-900">{members.filter(m => m.jenis_kelamin === 'Wanita').length}</p>
                 </div>
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1),0_8px_10px_-6px_rgba(0,0,0,0.1)]">
-                  <p className="text-xs text-slate-500 font-medium uppercase">Update Terakhir</p>
-                  <p className="text-2xl font-bold text-blue-900 text-sm mt-2">Real-time (Active)</p>
+                <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)]">
+                  <p className="text-[10px] md:text-xs text-slate-500 font-medium uppercase truncate">Update Terakhir</p>
+                  <p className="text-sm md:text-lg font-bold text-blue-900 mt-0 md:mt-2 truncate">Real-time</p>
                 </div>
               </div>
 
-              <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1),0_8px_10px_-6px_rgba(0,0,0,0.1)] flex flex-col min-h-0">
-                <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap justify-between items-center shrink-0 gap-3">
-                  <div className="flex flex-wrap gap-2">
+              <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] flex flex-col min-h-0">
+                <div className="p-3 md:p-4 bg-slate-50 border-b border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center shrink-0 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap w-full md:w-auto gap-2">
                       <input
                       type="text"
                       placeholder="Cari nama, no. hp, atau alamat..."
-                      className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 w-64 outline-none focus:ring-1 focus:ring-blue-500 shadow-sm"
+                      className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 md:py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 w-full lg:w-64 outline-none focus:ring-1 focus:ring-blue-500"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                     <select
-                      className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500 shadow-sm"
+                      className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 md:py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500 w-full lg:w-auto"
                       value={genderFilter}
                       onChange={(e) => setGenderFilter(e.target.value)}
                     >
@@ -527,30 +744,41 @@ export default function Dashboard() {
                       <option value="Wanita">Wanita</option>
                     </select>
                     <select
-                      className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500 shadow-sm"
+                      className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 md:py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500 w-full lg:w-auto"
                       value={baptisFilter}
                       onChange={(e) => setBaptisFilter(e.target.value)}
                     >
-                      <option value="">Semua Status Baptis</option>
+                      <option value="">Status Baptis</option>
                       <option value="Baptis Kecil">Baptis Kecil</option>
                       <option value="SIDI">SIDI</option>
                       <option value="Baptis Dewasa">Baptis Dewasa</option>
                     </select>
                     <select
-                      className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500 shadow-sm"
+                      className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 md:py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500 w-full lg:w-auto"
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value)}
                     >
                       <option value="nama_asc">Nama (A-Z)</option>
                       <option value="nama_desc">Nama (Z-A)</option>
-                      <option value="tgl_masuk_desc">Terbaru Masuk</option>
-                      <option value="tgl_masuk_asc">Terlama Masuk</option>
+                      <option value="no_anggota_asc">No. Anggota (1-9)</option>
+                      <option value="no_anggota_desc">No. Anggota (9-1)</option>
+                      <option value="tgl_masuk_desc">Masuk Terbaru</option>
+                      <option value="tgl_masuk_asc">Masuk Terlama</option>
+                    </select>
+                    <select
+                      className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 md:py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500 w-full lg:w-auto"
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                    >
+                      <option value="">Semua Status</option>
+                      <option value="Aktif">Anggota Aktif</option>
+                      <option value="Keluar">Sudah Keluar</option>
                     </select>
                   </div>
-                  <span className="text-[10px] text-slate-400 italic">Data tersinkronisasi Firebase</span>
+                  <span className="text-[10px] text-slate-400 italic hidden md:inline-block">Data tersinkronisasi Firebase</span>
                 </div>
                 
-                <div className="overflow-auto flex-1">
+                <div className="overflow-auto flex-1 w-full relative">
                   <table className="w-full text-xs text-left border-collapse">
                     <thead className="sticky top-0 bg-white shadow-sm z-10">
                       <tr className="text-slate-400 uppercase font-bold border-b border-slate-200">
@@ -588,7 +816,12 @@ export default function Dashboard() {
                             <tr key={member.id} className="hover:bg-slate-50 group">
                               <td className="p-3">{globalIdx}</td>
                               <td className="p-3 font-mono text-blue-600">{member.nomor_anggota}</td>
-                              <td className="p-3 font-semibold text-slate-800">{member.nama_lengkap}</td>
+                              <td className="p-3 font-semibold text-slate-800">
+                                <div>{member.nama_lengkap}</div>
+                                <span className={`inline-block mt-0.5 px-1.5 py-px rounded text-[9px] font-bold uppercase tracking-wider ${!member.tanggal_keluar ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'}`}>
+                                  {!member.tanggal_keluar ? 'Aktif' : 'Keluar'}
+                                </span>
+                              </td>
                               <td className="p-3">{member.jenis_kelamin === 'Pria' ? 'Pria' : 'Wanita'}</td>
                               <td className="p-3">{member.tempat_lahir}, {member.tanggal_lahir}</td>
                               <td className="p-3 font-mono">{member.no_telp || '-'}</td>
@@ -613,23 +846,35 @@ export default function Dashboard() {
                                 ) : '-'}
                               </td>
                               <td className="p-3 text-right">
-                                <button
-                                  onClick={() => {
-                                    setSelectedMember(member);
-                                    setIsModalOpen(true);
-                                  }}
-                                  className="text-blue-500 hover:text-blue-700 mr-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  title="Edit"
-                                >
-                                  <Edit2 className="h-4 w-4 inline" />
-                                </button>
-                                <button
-                                  onClick={() => member.id && handleDeleteClick(member.id)}
-                                  className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  title="Hapus"
-                                >
-                                  <Trash2 className="h-4 w-4 inline" />
-                                </button>
+                                <div className="flex justify-end gap-2">
+                                  <button
+                                    onClick={() => {
+                                      setMemberToView(member);
+                                      setIsViewModalOpen(true);
+                                    }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600 hover:border-slate-300 dark:hover:border-slate-500 rounded-lg transition-colors focus:outline-none shadow-sm"
+                                    title="Lihat Kartu Jemaat"
+                                  >
+                                    <Eye className="h-3.5 w-3.5" /> Lihat
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedMember(member);
+                                      setIsModalOpen(true);
+                                    }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 hover:border-blue-300 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                                    title="Edit Data"
+                                  >
+                                    <Edit2 className="h-3.5 w-3.5" /> Edit
+                                  </button>
+                                  <button
+                                    onClick={() => member.id && handleDeleteClick(member.id)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 hover:border-red-300 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm"
+                                    title="Hapus Data"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" /> Hapus
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           );
@@ -689,13 +934,121 @@ export default function Dashboard() {
             <WeeklyReportsPanel />
           )}
 
+          {activeTab === 'birthdays' && (
+            <div className="flex-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] flex flex-col min-h-0">
+              <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 shrink-0">
+                <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                       <Gift className="text-blue-600 dark:text-blue-400 w-5 h-5"/> Daftar Ulang Tahun Terdekat
+                    </h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                      Menampilkan jemaat yang berulang tahun berdasarkan jarak hari terdekat dari <span className="font-semibold text-slate-700 dark:text-slate-200">{new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}</span>
+                    </p>
+                  </div>
+                  <select
+                    className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500 shadow-sm"
+                    value={birthdayStatusFilter}
+                    onChange={(e) => setBirthdayStatusFilter(e.target.value)}
+                  >
+                    <option value="">Semua Status</option>
+                    <option value="Aktif">Anggota Aktif</option>
+                    <option value="Keluar">Sudah Keluar</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="overflow-auto flex-1 w-full bg-slate-50/50 dark:bg-slate-900/50 p-3 sm:p-4 md:p-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                  {members
+                    .filter(m => birthdayStatusFilter === 'Aktif' ? !m.tanggal_keluar : birthdayStatusFilter === 'Keluar' ? !!m.tanggal_keluar : true)
+                    .map(m => ({ ...m, daysLeft: getDaysToBirthday(m.tanggal_lahir) }))
+                    .filter(m => m.daysLeft !== null)
+                    .sort((a, b) => (a.daysLeft as number) - (b.daysLeft as number))
+                    .map((m) => {
+                      const days = m.daysLeft as number;
+                      const isToday = days === 0;
+                      const isUpcoming = days > 0 && days <= 7;
+                      const isActive = !m.tanggal_keluar;
+                      
+                      let cardStyle = "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm";
+                      let badgeStyle = "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300";
+                      let iconColor = "text-slate-500 dark:text-slate-400";
+                      let iconBg = "bg-slate-100 dark:bg-slate-700/50";
+                      
+                      if (isToday) {
+                        cardStyle = "bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800 shadow-blue-100/50 dark:shadow-none ring-1 ring-blue-500 dark:ring-blue-600";
+                        badgeStyle = "bg-blue-600 dark:bg-blue-500 text-white animate-pulse shadow-sm";
+                        iconColor = "text-blue-600 dark:text-blue-400";
+                        iconBg = "bg-blue-100 dark:bg-blue-900/50";
+                      } else if (isUpcoming) {
+                        cardStyle = "bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-800/50";
+                        badgeStyle = "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 font-semibold";
+                        iconColor = "text-emerald-500 dark:text-emerald-400";
+                      }
+                      
+                      const birthDateObj = new Date(m.tanggal_lahir);
+                      const displayDate = birthDateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long' });
+                      const currentAge = new Date().getFullYear() - birthDateObj.getFullYear();
+                      const nextAge = currentAge + (new Date(new Date().getFullYear(), birthDateObj.getMonth(), birthDateObj.getDate()) < new Date() ? 1 : 0);
+
+                      return (
+                        <div key={m.id} className={`p-4 rounded-xl border transition-all hover:shadow-md ${cardStyle} flex flex-col relative overflow-hidden`}>
+                           {isToday && (
+                             <div className="absolute -top-6 -right-6 text-blue-100 dark:text-blue-900/30 opacity-50 rotate-12 pointer-events-none">
+                               <Gift size={100} />
+                             </div>
+                           )}
+                           
+                           <div className="flex justify-between items-start mb-3 relative z-10">
+                             <div className="flex-1 min-w-0 pr-2">
+                                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base truncate" title={m.nama_lengkap}>{m.nama_lengkap}</h3>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <p className="text-xs font-mono text-slate-500 dark:text-slate-400">{m.nomor_anggota}</p>
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'}`}>
+                                    {isActive ? 'Aktif' : 'Keluar'}
+                                  </span>
+                                </div>
+                             </div>
+                             <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${iconBg} ${iconColor}`}>
+                               <Gift className="w-5 h-5"/>
+                             </div>
+                           </div>
+                           
+                           <div className="mt-auto space-y-3 relative z-10">
+                              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                                🎂 <span className="font-medium text-slate-700 dark:text-slate-200">{displayDate}</span> 
+                                <span className="text-xs text-slate-400 dark:text-slate-500">({nextAge} thn)</span>
+                              </div>
+                              <div className="pt-3 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+                                 <span className="text-xs text-slate-500 dark:text-slate-400">Hitung Mundur:</span>
+                                 <span className={`px-2.5 py-1 rounded-md text-xs ${badgeStyle}`}>
+                                   {isToday ? 'HARI INI!' : `${days} Hari Lagi`}
+                                 </span>
+                              </div>
+                           </div>
+                        </div>
+                      );
+                  })}
+                  
+                  {members.filter(m => m.tanggal_lahir && !isNaN(new Date(m.tanggal_lahir).getTime())).length === 0 && (
+                     <div className="col-span-full py-12 text-center text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
+                       <Gift className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                       <p>Belum ada data tanggal lahir yang valid untuk ditampilkan.</p>
+                     </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'stats' && (
-            <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1),0_8px_10px_-6px_rgba(0,0,0,0.1)] p-6 overflow-y-auto">
-              <h2 className="text-xl font-bold text-slate-800 mb-6">Statistik Jemaat</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                  <h3 className="text-sm font-semibold text-slate-500 text-center mb-4 uppercase tracking-wider">Demografi Kelamin</h3>
-                  <div className="h-64">
+            <div className="flex-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] p-4 sm:p-6 overflow-y-auto">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 mb-4 sm:mb-6">Statistik Jemaat</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
+                <div className="bg-slate-50 dark:bg-slate-800/80 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                  <h3 className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 text-center mb-4 uppercase tracking-wider">Demografi Kelamin</h3>
+                  <div className="h-56 sm:h-64">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
@@ -703,24 +1056,24 @@ export default function Dashboard() {
                             { name: 'Pria', value: members.filter(m => m.jenis_kelamin === 'Pria').length },
                             { name: 'Wanita', value: members.filter(m => m.jenis_kelamin === 'Wanita').length },
                           ]}
-                          cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value"
+                          cx="50%" cy="50%" innerRadius={isSidebarOpen && window.innerWidth < 1024 ? 40 : 60} outerRadius={isSidebarOpen && window.innerWidth < 1024 ? 60 : 80} paddingAngle={5} dataKey="value"
                         >
                           <Cell fill="#1E3A8A" />
                           <Cell fill="#10B981" />
                         </Pie>
-                        <Tooltip />
+                        <Tooltip contentStyle={{ backgroundColor: isDarkMode ? '#1e293b' : '#fff', borderColor: isDarkMode ? '#334155' : '#e2e8f0', color: isDarkMode ? '#f8fafc' : '#1e293b' }} />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
-                  <div className="flex justify-center gap-4 mt-2 text-xs text-slate-600">
-                    <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-[#1E3A8A]"></span>Pria</div>
-                    <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-[#10B981]"></span>Wanita</div>
+                  <div className="flex justify-center gap-4 mt-2 text-xs text-slate-600 dark:text-slate-300">
+                    <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#1E3A8A]"></span>Pria</div>
+                    <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#10B981]"></span>Wanita</div>
                   </div>
                 </div>
 
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                  <h3 className="text-sm font-semibold text-slate-500 text-center mb-4 uppercase tracking-wider">Status Baptis</h3>
-                  <div className="h-64">
+                <div className="bg-slate-50 dark:bg-slate-800/80 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                  <h3 className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 text-center mb-4 uppercase tracking-wider">Status Baptis</h3>
+                  <div className="h-56 sm:h-64 -ml-4 sm:-ml-2">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={[
                         { name: 'Belum', value: members.filter(m => !m.jenis_baptis || m.jenis_baptis === '').length },
@@ -728,9 +1081,9 @@ export default function Dashboard() {
                         { name: 'Dewasa', value: members.filter(m => m.jenis_baptis === 'Baptis Dewasa').length },
                         { name: 'SIDI', value: members.filter(m => m.jenis_baptis === 'SIDI').length }
                       ]}>
-                        <XAxis dataKey="name" tick={{fontSize: 12}} />
-                        <YAxis tick={{fontSize: 12}} />
-                        <Tooltip />
+                        <XAxis dataKey="name" tick={{fontSize: 10, fill: isDarkMode ? '#94a3b8' : '#64748b'}} interval={0} />
+                        <YAxis tick={{fontSize: 10, fill: isDarkMode ? '#94a3b8' : '#64748b'}} width={35} />
+                        <Tooltip cursor={{fill: isDarkMode ? '#334155' : '#f1f5f9'}} contentStyle={{ backgroundColor: isDarkMode ? '#1e293b' : '#fff', borderColor: isDarkMode ? '#334155' : '#e2e8f0', color: isDarkMode ? '#f8fafc' : '#1e293b' }} />
                         <Bar dataKey="value" fill="#F59E0B" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
@@ -741,10 +1094,10 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'map' && (
-            <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1),0_8px_10px_-6px_rgba(0,0,0,0.1)] p-6 flex flex-col">
-              <h2 className="text-xl font-bold text-slate-800 mb-6 shrink-0">Pemetaan Jemaat Berdasarkan Alamat</h2>
+            <div className="flex-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] p-4 sm:p-6 flex flex-col min-h-0">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 mb-4 sm:mb-6 shrink-0">Pemetaan Jemaat Berdasarkan Alamat</h2>
               <div className="flex-1 overflow-y-auto pr-2">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                   {Object.entries(
                     members.reduce((acc, m) => {
                       const addr = m.alamat_asal || 'Tidak Diketahui';
@@ -754,12 +1107,12 @@ export default function Dashboard() {
                       return acc;
                     }, {} as Record<string, number>)
                   ).map(([group, count]) => (
-                    <div key={group} className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center">
-                      <div>
-                        <p className="font-semibold text-slate-800 truncate" title={group}>{group}</p>
-                        <p className="text-xs text-slate-500">Area</p>
+                    <div key={group} className="p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 flex justify-between items-center hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors">
+                      <div className="min-w-0 pr-3">
+                        <p className="font-semibold text-sm sm:text-base text-slate-800 dark:text-slate-100 truncate" title={group}>{group}</p>
+                        <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">Area/Wilayah</p>
                       </div>
-                      <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-800 flex items-center justify-center font-bold">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 shrink-0 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 flex items-center justify-center font-bold text-xs sm:text-sm">
                         {count}
                       </div>
                     </div>
@@ -829,6 +1182,12 @@ export default function Dashboard() {
         onClose={() => setIsModalOpen(false)}
         initialData={selectedMember}
         onSave={handleSaveMember}
+      />
+      
+      <MemberViewModal
+        isOpen={isViewModalOpen}
+        onClose={() => setIsViewModalOpen(false)}
+        member={memberToView}
       />
 
       {/* Delete Confirmation Modal */}
