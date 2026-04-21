@@ -1,7 +1,9 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Member } from '../types';
-import { X, Printer, User, MapPin, Phone, Calendar, Droplets, BookOpen, Clock } from 'lucide-react';
+import { X, Download, User, Droplets, Clock } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
+import { toPng } from 'html-to-image';
+import { jsPDF } from 'jspdf';
 
 interface MemberViewModalProps {
   isOpen: boolean;
@@ -12,11 +14,45 @@ interface MemberViewModalProps {
 export default function MemberViewModal({ isOpen, onClose, member }: MemberViewModalProps) {
   const { isDarkMode } = useTheme();
   const printRef = useRef<HTMLDivElement>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   if (!isOpen || !member) return null;
 
-  const handlePrint = () => {
-    window.print();
+  const handleDownloadPDF = async () => {
+    if (!printRef.current) return;
+    setIsGenerating(true);
+    try {
+      const dataUrl = await toPng(printRef.current, { 
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: isDarkMode ? '#0f172a' : '#ffffff', // Ensure correct background matching dark mode
+        fontEmbedCSS: '', // Bypass font fetching bugs
+        style: {
+          fontFamily: 'Inter, system-ui, sans-serif'
+        }
+      });
+      
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+      
+      const imgProps = pdf.getImageProperties(dataUrl);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      
+      const margin = 10;
+      const finalWidth = pdfWidth - (margin * 2);
+      const finalHeight = (imgProps.height * finalWidth) / imgProps.width;
+      
+      pdf.addImage(dataUrl, 'PNG', margin, margin, finalWidth, finalHeight);
+      pdf.save(`Kartu_Jemaat_${member.nama_lengkap.replace(/\s+/g, '_')}.pdf`);
+    } catch (e) {
+       console.error("PDF generation failed:", e);
+       alert("Gagal membuat PDF. Coba kembali.");
+    } finally {
+       setIsGenerating(false);
+    }
   };
 
   const isActive = !member.tanggal_keluar;
@@ -37,10 +73,16 @@ export default function MemberViewModal({ isOpen, onClose, member }: MemberViewM
           </h2>
           <div className="flex items-center gap-2">
             <button
-              onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800 rounded-lg text-sm font-semibold transition-colors"
+              onClick={handleDownloadPDF}
+              disabled={isGenerating}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
             >
-              <Printer className="w-4 h-4" /> Cetak
+              {isGenerating ? (
+                <span className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></span>
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              {isGenerating ? "Memproses PDF..." : "Unduh PDF"}
             </button>
             <button
               onClick={onClose}
@@ -57,6 +99,7 @@ export default function MemberViewModal({ isOpen, onClose, member }: MemberViewM
           {/* Printable Card Container */}
           <div 
             ref={printRef} 
+            style={{ fontFamily: 'sans-serif' }}
             className="bg-white dark:bg-slate-900 p-6 md:p-10 rounded-xl shadow-sm border text-slate-800 dark:text-slate-200 print:shadow-none print:border-none print:m-0 mx-auto max-w-2xl border-slate-300 dark:border-slate-700 relative overflow-hidden"
           >
             {/* Watermark / Decoration */}

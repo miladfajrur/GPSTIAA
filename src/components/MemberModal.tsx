@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Member } from "../types";
-import { X } from "lucide-react";
+import { X, Upload, Image as ImageIcon } from "lucide-react";
+import { storage } from "../lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { v4 as uuidv4 } from "uuid";
 
 interface MemberModalProps {
   isOpen: boolean;
@@ -30,10 +33,14 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [noUrut, setNoUrut] = useState("");
   const [tahun, setTahun] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (initialData) {
       setFormData(initialData);
+      setPreviewUrl(initialData.foto_url || null);
       if (initialData.nomor_anggota) {
         const parts = initialData.nomor_anggota.split("/GPSTIAA/");
         if (parts.length === 2) {
@@ -48,7 +55,9 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
       setFormData(defaultMember);
       setNoUrut("");
       setTahun("");
+      setPreviewUrl(null);
     }
+    setSelectedFile(null);
   }, [initialData, isOpen]);
 
   if (!isOpen) return null;
@@ -68,11 +77,46 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      // Check maximum 3MB
+      if (file.size > 3 * 1024 * 1024) {
+        alert("Ukuran file melebihi batas 3 MB.");
+        e.target.value = "";
+        return;
+      }
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+      // Clear URL input if file is selected
+      setFormData(prev => ({...prev, foto_url: ""}));
+    }
+  };
+  
+  const handleClearPhoto = () => {
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setFormData(prev => ({...prev, foto_url: ""}));
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    let currentData = { ...formData };
+
     try {
-      await onSave(formData);
+      if (selectedFile) {
+        const fileExtension = selectedFile.name.split('.').pop();
+        const fileName = `members/${currentData.tenantId}/${uuidv4()}.${fileExtension}`;
+        const storageRef = ref(storage, fileName);
+        
+        await uploadBytes(storageRef, selectedFile);
+        const downloadUrl = await getDownloadURL(storageRef);
+        currentData.foto_url = downloadUrl;
+      }
+
+      await onSave(currentData);
       onClose();
     } catch (error) {
       console.error(error);
@@ -247,16 +291,87 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
               />
             </div>
 
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Link Foto (Google Drive dll)</label>
-              <input
-                type="url"
-                name="foto_url"
-                value={formData.foto_url}
-                onChange={handleChange}
-                placeholder="https://drive.google.com/..."
-                className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
-              />
+            <div className="md:col-span-2 space-y-4 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Foto Jemaat (Opsional)</label>
+              
+              <div className="flex flex-col sm:flex-row gap-4 items-start">
+                {/* Photo Preview */}
+                <div className="w-24 h-32 bg-slate-100 dark:bg-slate-800 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg flex items-center justify-center shrink-0 overflow-hidden relative group">
+                  {previewUrl ? (
+                    <>
+                      <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                      <button 
+                        type="button"
+                        onClick={handleClearPhoto}
+                        className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Hapus Foto"
+                      >
+                         <X className="w-6 h-6" />
+                      </button>
+                    </>
+                  ) : (
+                    <div className="text-center p-2">
+                       <ImageIcon className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-1" />
+                       <span className="text-[9px] text-slate-400 font-medium">3 x 4</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 w-full space-y-3">
+                  {/* URL Input */}
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-500 mb-1">Gunakan Link (G-Drive/URL Image)</label>
+                    <input
+                      type="url"
+                      name="foto_url"
+                      value={formData.foto_url}
+                      onChange={(e) => {
+                        handleChange(e);
+                        if (e.target.value) {
+                          setPreviewUrl(e.target.value);
+                          setSelectedFile(null);
+                          if (fileInputRef.current) fileInputRef.current.value = "";
+                        } else if (!selectedFile) {
+                          setPreviewUrl(null);
+                        }
+                      }}
+                      placeholder="https://..."
+                      className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-400 dark:text-slate-500 w-full flex items-center gap-2">
+                       <span className="h-px bg-slate-200 dark:bg-slate-700 flex-1"></span>
+                       ATAU
+                       <span className="h-px bg-slate-200 dark:bg-slate-700 flex-1"></span>
+                    </span>
+                  </div>
+
+                  {/* File Importer */}
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-500 mb-1">Upload File (Max 3 MB)</label>
+                    <div className="relative">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        ref={fileInputRef}
+                        className="hidden"
+                        id="foto_upload"
+                      />
+                      <label 
+                        htmlFor="foto_upload"
+                        className="cursor-pointer flex items-center justify-center gap-2 w-full px-3 py-2 border-2 border-dashed border-blue-200 dark:border-blue-800 rounded-lg hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-blue-700 dark:text-blue-400 text-sm font-medium"
+                      >
+                        <Upload className="w-4 h-4" /> Cari File Foto
+                      </label>
+                      {selectedFile && <p className="text-[10px] text-slate-500 mt-1 truncate">File terpilih: {selectedFile.name}</p>}
+                    </div>
+                  </div>
+                  
+                </div>
+              </div>
             </div>
           </form>
         </div>

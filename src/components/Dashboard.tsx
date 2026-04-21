@@ -815,7 +815,18 @@ export default function Dashboard() {
                           return (
                             <tr key={member.id} className="hover:bg-slate-50 group">
                               <td className="p-3">{globalIdx}</td>
-                              <td className="p-3 font-mono text-blue-600">{member.nomor_anggota}</td>
+                              <td className="p-3">
+                                <button 
+                                  onClick={() => {
+                                    setMemberToView(member);
+                                    setIsViewModalOpen(true);
+                                  }}
+                                  className="font-mono text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline cursor-pointer focus:outline-none text-left"
+                                  title="Lihat Detail Kartu Jemaat"
+                                >
+                                  {member.nomor_anggota}
+                                </button>
+                              </td>
                               <td className="p-3 font-semibold text-slate-800">
                                 <div>{member.nama_lengkap}</div>
                                 <span className={`inline-block mt-0.5 px-1.5 py-px rounded text-[9px] font-bold uppercase tracking-wider ${!member.tanggal_keluar ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'}`}>
@@ -847,16 +858,6 @@ export default function Dashboard() {
                               </td>
                               <td className="p-3 text-right">
                                 <div className="flex justify-end gap-2">
-                                  <button
-                                    onClick={() => {
-                                      setMemberToView(member);
-                                      setIsViewModalOpen(true);
-                                    }}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600 hover:border-slate-300 dark:hover:border-slate-500 rounded-lg transition-colors focus:outline-none shadow-sm"
-                                    title="Lihat Kartu Jemaat"
-                                  >
-                                    <Eye className="h-3.5 w-3.5" /> Lihat
-                                  </button>
                                   <button
                                     onClick={() => {
                                       setSelectedMember(member);
