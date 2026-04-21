@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Member } from "../types";
-import { X, Upload, Image as ImageIcon } from "lucide-react";
+import { X, Upload, Image as ImageIcon, CheckCircle } from "lucide-react";
 import { storage } from "../lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { v4 as uuidv4 } from "uuid";
@@ -35,6 +35,7 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
   const [tahun, setTahun] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -77,22 +78,57 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const processFile = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      alert("Hanya file gambar (foto) yang diperbolehkan.");
+      return;
+    }
+    
+    // Check maximum 3MB
+    if (file.size > 3 * 1024 * 1024) {
+      alert(`Ukuran file melebihi batas 3 MB. File Anda: ${formatFileSize(file.size)}`);
+      return;
+    }
+    
+    setSelectedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+    setFormData(prev => ({...prev, foto_url: ""}));
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      // Check maximum 3MB
-      if (file.size > 3 * 1024 * 1024) {
-        alert("Ukuran file melebihi batas 3 MB.");
-        e.target.value = "";
-        return;
-      }
-      setSelectedFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
-      // Clear URL input if file is selected
-      setFormData(prev => ({...prev, foto_url: ""}));
+      processFile(e.target.files[0]);
+      if (fileInputRef.current) fileInputRef.current.value = ""; // Reset input after acquiring
     }
   };
   
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      processFile(e.dataTransfer.files[0]);
+    }
+  };
+
   const handleClearPhoto = () => {
     setSelectedFile(null);
     setPreviewUrl(null);
@@ -350,7 +386,7 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
 
                   {/* File Importer */}
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-500 mb-1">Upload File (Max 3 MB)</label>
+                    <label className="block text-[11px] font-medium text-slate-500 mb-1">Pilih atau Tarik File (Max 3 MB)</label>
                     <div className="relative">
                       <input
                         type="file"
@@ -362,11 +398,24 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
                       />
                       <label 
                         htmlFor="foto_upload"
-                        className="cursor-pointer flex items-center justify-center gap-2 w-full px-3 py-2 border-2 border-dashed border-blue-200 dark:border-blue-800 rounded-lg hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-blue-700 dark:text-blue-400 text-sm font-medium"
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        className={`cursor-pointer flex flex-col items-center justify-center gap-2 w-full px-3 py-6 border-2 border-dashed rounded-xl transition-all ${isDragging ? 'border-blue-500 bg-blue-100 dark:border-blue-500 dark:bg-blue-900/40 transform scale-[1.02]' : 'border-slate-300 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
                       >
-                        <Upload className="w-4 h-4" /> Cari File Foto
+                        <Upload className={`w-6 h-6 ${isDragging ? 'text-blue-600 dark:text-blue-400 animate-bounce' : 'text-slate-400 dark:text-slate-500'}`} /> 
+                        <div className="text-center">
+                           <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                             {isDragging ? 'Lepaskan gambar di sini' : 'Drag & Drop foto jemaat'}
+                           </p>
+                           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">atau klik untuk browse file sistem</p>
+                        </div>
                       </label>
-                      {selectedFile && <p className="text-[10px] text-slate-500 mt-1 truncate">File terpilih: {selectedFile.name}</p>}
+                      {selectedFile && (
+                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-2 flex items-center gap-1 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-md">
+                          <CheckCircle className="w-3 h-3" /> Berhasil dilampirkan: {selectedFile.name} ({formatFileSize(selectedFile.size)})
+                        </p>
+                      )}
                     </div>
                   </div>
                   
