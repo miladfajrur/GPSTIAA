@@ -229,14 +229,33 @@ export default function Dashboard() {
     const docId = id || doc(collection(db, "members")).id;
     const isNew = !id;
     
-    await setDoc(doc(db, "members", docId), {
-      ...dataToSave,
-      tenantId: "gpstiaa",
-      createdAt: isNew ? serverTimestamp() : dataToSave.createdAt,
-      updatedAt: serverTimestamp(),
-    }, { merge: false }); // Using merge: false to enforce strict schema replacement
+    // Scrub undefined fields to prevent Firestore crash
+    const cleanData = Object.fromEntries(
+      Object.entries(dataToSave).filter(([_, v]) => v !== undefined)
+    );
 
-    addToast(`Data jemaat ${dataToSave.nama_lengkap} berhasil ${isNew ? 'ditambahkan' : 'diperbarui'}!`, 'success');
+    const payload: any = {
+      ...cleanData,
+      tenantId: "gpstiaa",
+      updatedAt: serverTimestamp(),
+    };
+
+    if (isNew) {
+      payload.createdAt = serverTimestamp();
+    } else if (cleanData.createdAt) {
+      payload.createdAt = cleanData.createdAt;
+    } else {
+      payload.createdAt = serverTimestamp(); // Fallback if missing
+    }
+
+    try {
+      await setDoc(doc(db, "members", docId), payload, { merge: false });
+      addToast(`Data jemaat ${cleanData.nama_lengkap} berhasil ${isNew ? 'ditambahkan' : 'diperbarui'}!`, 'success');
+    } catch (error) {
+      console.error("Error saving member to Firestore:", error);
+      addToast("Gagal menyimpan data jemaat. Periksa koneksi atau rules Firestore.", "error");
+      throw error; // Re-throw to be caught by MemberModal
+    }
   };
 
   const handleDeleteClick = (id: string) => {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Member } from "../types";
 import { X, Upload, Image as ImageIcon, CheckCircle } from "lucide-react";
 import { storage } from "../lib/firebase";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { v4 as uuidv4 } from "uuid";
 
 interface MemberModalProps {
@@ -36,6 +36,7 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -139,17 +140,35 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setUploadProgress(null);
     let currentData = { ...formData };
 
     try {
       if (selectedFile) {
         const fileExtension = selectedFile.name.split('.').pop();
-        const fileName = `members/${currentData.tenantId}/${uuidv4()}.${fileExtension}`;
+        const fileName = `members/${currentData.tenantId || 'gpstiaa'}/${uuidv4()}.${fileExtension}`;
         const storageRef = ref(storage, fileName);
         
-        await uploadBytes(storageRef, selectedFile);
-        const downloadUrl = await getDownloadURL(storageRef);
-        currentData.foto_url = downloadUrl;
+        const uploadTask = uploadBytesResumable(storageRef, selectedFile);
+        
+        await new Promise<void>((resolve, reject) => {
+          uploadTask.on(
+            'state_changed',
+            (snapshot) => {
+              const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+              setUploadProgress(progress);
+            },
+            (error) => {
+              console.error("Upload failed", error);
+              reject(error);
+            },
+            async () => {
+              const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+              currentData.foto_url = downloadUrl;
+              resolve();
+            }
+          );
+        });
       }
 
       await onSave(currentData);
@@ -159,6 +178,7 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
       alert("Terjadi kesalahan saat menyimpan data.");
     } finally {
       setIsSubmitting(false);
+      setUploadProgress(null);
     }
   };
 
@@ -426,10 +446,25 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
         </div>
 
         <div className="flex items-center justify-end gap-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-6 py-4">
+          {uploadProgress !== null && (
+            <div className="flex-1 mr-4">
+              <div className="flex justify-between text-xs text-blue-600 dark:text-blue-400 font-medium mb-1">
+                <span>Mengunggah Foto...</span>
+                <span>{Math.round(uploadProgress)}%</span>
+              </div>
+              <div className="w-full bg-blue-100 dark:bg-slate-700 rounded-full h-2">
+                <div 
+                  className="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-300" 
+                  style={{ width: `${uploadProgress}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+            disabled={isSubmitting}
+            className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 disabled:opacity-50"
           >
             Batal
           </button>
@@ -437,9 +472,14 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
             type="submit"
             form="member-form"
             disabled={isSubmitting}
-            className="rounded-lg bg-blue-800 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 disabled:opacity-50"
+            className="rounded-lg bg-blue-800 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {isSubmitting ? "Menyimpan..." : "Simpan Data"}
+            {isSubmitting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                Menyimpan...
+              </>
+            ) : "Simpan Data"}
           </button>
         </div>
       </div>
