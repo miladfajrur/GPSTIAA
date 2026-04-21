@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { collection, onSnapshot, query, setDoc, doc, deleteDoc, serverTimestamp, orderBy, where } from "firebase/firestore";
 import Papa from "papaparse";
-import { Download, Plus, Search, LogOut, Edit2, Trash2, Filter, Users, PieChart as PieChartIcon, MapPin, Settings, Upload, Menu, UserCheck, CheckCircle, AlertCircle, Info, X, ChevronDown, MoreVertical, Gift, Bell, Eye } from "lucide-react";
+import { Download, Plus, Search, LogOut, Edit2, Trash2, Filter, Users, PieChart as PieChartIcon, MapPin, Settings, Upload, Menu, UserCheck, CheckCircle, AlertCircle, Info, X, ChevronDown, MoreVertical, Gift, Bell, Eye, TableProperties } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 import { db } from "../lib/firebase";
 import { useAuth } from "../AuthContext";
 import { useTheme } from "../ThemeContext";
 import { Member } from "../types";
+import { formatDateDDMMYYYY } from "../lib/utils";
 import MemberModal from "./MemberModal";
 import MemberViewModal from "./MemberViewModal";
+import BulkEntryModal from "./BulkEntryModal";
 import WeeklyReportsPanel from "./WeeklyReportsPanel";
 
 export type ToastMessage = {
@@ -41,6 +43,8 @@ export default function Dashboard() {
   
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [memberToView, setMemberToView] = useState<Member | null>(null);
+
+  const [isBulkEntryOpen, setIsBulkEntryOpen] = useState(false);
 
   const [activeTab, setActiveTab] = useState("members"); // "members", "stats", "map", "settings"
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
@@ -678,6 +682,12 @@ export default function Dashboard() {
                         </>
                       )}
                     </button>
+                    <button
+                      onClick={() => setIsBulkEntryOpen(true)}
+                      className="w-full text-left px-3 py-2 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors flex items-center gap-2"
+                    >
+                      <TableProperties className="h-3.5 w-3.5" /> Input Massal (Grid)
+                    </button>
                     <div className="h-px bg-slate-100 dark:bg-slate-700/50 my-1"></div>
                     <button
                       onClick={handleExportCSV}
@@ -725,17 +735,24 @@ export default function Dashboard() {
               </div>
 
               <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] flex flex-col min-h-0">
-                <div className="p-3 md:p-4 bg-slate-50 border-b border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center shrink-0 gap-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap w-full md:w-auto gap-2">
+                <div className="p-2.5 bg-slate-50 dark:bg-slate-800/30 border-b border-slate-200 dark:border-slate-700 flex flex-row items-center justify-between shrink-0 gap-4 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                  <div className="flex flex-nowrap items-center gap-2 w-max text-xs">
+                    <div className="relative group">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                       <input
-                      type="text"
-                      placeholder="Cari nama, no. hp, atau alamat..."
-                      className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 md:py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 w-full lg:w-64 outline-none focus:ring-1 focus:ring-blue-500"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+                        type="text"
+                        placeholder="Cari nama, nohp, alamat..."
+                        className="border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-3 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 w-52 md:w-64 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                    
+                    <div className="h-4 w-px bg-slate-300 dark:bg-slate-600 mx-1"></div>
+
                     <select
-                      className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 md:py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500 w-full lg:w-auto"
+                      className="border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm appearance-none pr-8 cursor-pointer relative"
+                      style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.2rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }}
                       value={genderFilter}
                       onChange={(e) => setGenderFilter(e.target.value)}
                     >
@@ -743,8 +760,10 @@ export default function Dashboard() {
                       <option value="Pria">Pria</option>
                       <option value="Wanita">Wanita</option>
                     </select>
+
                     <select
-                      className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 md:py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500 w-full lg:w-auto"
+                      className="border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm appearance-none pr-8 cursor-pointer relative"
+                      style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.2rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }}
                       value={baptisFilter}
                       onChange={(e) => setBaptisFilter(e.target.value)}
                     >
@@ -753,20 +772,10 @@ export default function Dashboard() {
                       <option value="SIDI">SIDI</option>
                       <option value="Baptis Dewasa">Baptis Dewasa</option>
                     </select>
+
                     <select
-                      className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 md:py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500 w-full lg:w-auto"
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value)}
-                    >
-                      <option value="nama_asc">Nama (A-Z)</option>
-                      <option value="nama_desc">Nama (Z-A)</option>
-                      <option value="no_anggota_asc">No. Anggota (1-9)</option>
-                      <option value="no_anggota_desc">No. Anggota (9-1)</option>
-                      <option value="tgl_masuk_desc">Masuk Terbaru</option>
-                      <option value="tgl_masuk_asc">Masuk Terlama</option>
-                    </select>
-                    <select
-                      className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 md:py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500 w-full lg:w-auto"
+                      className="border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm appearance-none pr-8 cursor-pointer relative"
+                      style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.2rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }}
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
                     >
@@ -774,8 +783,26 @@ export default function Dashboard() {
                       <option value="Aktif">Anggota Aktif</option>
                       <option value="Keluar">Sudah Keluar</option>
                     </select>
+
+                    <div className="h-4 w-px bg-slate-300 dark:bg-slate-600 mx-1"></div>
+
+                    <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 shadow-sm font-medium">
+                      <Filter className="w-3 h-3 text-slate-400" />
+                      <select
+                        className="bg-transparent text-slate-800 dark:text-slate-100 outline-none appearance-none pr-5 cursor-pointer relative"
+                        style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0 center', backgroundRepeat: 'no-repeat', backgroundSize: '1.2em 1.2em' }}
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
+                      >
+                        <option value="nama_asc">Urut A-Z</option>
+                        <option value="nama_desc">Urut Z-A</option>
+                        <option value="no_anggota_asc">No. 1-9</option>
+                        <option value="no_anggota_desc">No. 9-1</option>
+                        <option value="tgl_masuk_desc">Terbaru</option>
+                        <option value="tgl_masuk_asc">Terlama</option>
+                      </select>
+                    </div>
                   </div>
-                  <span className="text-[10px] text-slate-400 italic hidden md:inline-block">Data tersinkronisasi Firebase</span>
                 </div>
                 
                 <div className="overflow-auto flex-1 w-full relative">
@@ -834,7 +861,7 @@ export default function Dashboard() {
                                 </span>
                               </td>
                               <td className="p-3">{member.jenis_kelamin === 'Pria' ? 'Pria' : 'Wanita'}</td>
-                              <td className="p-3">{member.tempat_lahir}, {member.tanggal_lahir}</td>
+                              <td className="p-3">{member.tempat_lahir}, {formatDateDDMMYYYY(member.tanggal_lahir)}</td>
                               <td className="p-3 font-mono">{member.no_telp || '-'}</td>
                               <td className="p-3 max-w-[150px] truncate" title={member.alamat_asal}>{member.alamat_asal}</td>
                               <td className="p-3">
@@ -850,7 +877,7 @@ export default function Dashboard() {
                                   </>
                                 )}
                               </td>
-                              <td className="p-3">{member.tanggal_masuk || '-'}</td>
+                              <td className="p-3">{formatDateDDMMYYYY(member.tanggal_masuk)}</td>
                               <td className="p-3">
                                 {member.foto_url ? (
                                   <a href={member.foto_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline hover:text-blue-700">Link Drive</a>
@@ -1189,6 +1216,14 @@ export default function Dashboard() {
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
         member={memberToView}
+      />
+
+      <BulkEntryModal
+        isOpen={isBulkEntryOpen}
+        onClose={() => setIsBulkEntryOpen(false)}
+        onSuccess={(count) => {
+          addToast(`Input massal berhasil! ${count} jemaat baru ditambahkan.`, 'success');
+        }}
       />
 
       {/* Delete Confirmation Modal */}
