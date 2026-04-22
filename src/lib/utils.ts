@@ -101,21 +101,21 @@ export const compressImage = (file: File, maxWidth = 600, quality = 0.6): Promis
   });
 };
 
-// Auto Export Google Drive Link
+// Auto Export & Proxy Image Link
+// Digunakan agar gambar dari Google Drive / tempat lain dapat dirender ke dalam HTML Canvas tanpa terblokir sistem keamanan Strict CORS (solusi bug saat unduh PDF/JPG).
 export const getDirectDriveLink = (url: string | null | undefined): string => {
   if (!url) return '';
   
+  let finalUrl = url;
   // Regex to extract the FILE_ID from standard Google Drive sharing links
-  // Handles:
-  // - https://drive.google.com/file/d/FILE_ID/view
-  // - https://drive.google.com/open?id=FILE_ID
   const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
   if (match && match[1]) {
     const fileId = match[1];
-    // Return the high-speed export link that directly spits out the image bytes
-    return `https://drive.google.com/uc?export=view&id=${fileId}`;
+    // Convert to Drive's content link
+    finalUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
   }
   
-  // If it's already a direct link or not a drive link, return as is
-  return url;
+  // Menggunakan wsrv.nl (Imageserv proxy gratis) sebagai jembatan Bypass CORS
+  // Supaya fungsi "html-to-image" saat Download tidak mengira ini serangan "Tainted Canvas"
+  return `https://wsrv.nl/?url=${encodeURIComponent(finalUrl)}&output=webp&we`;
 };

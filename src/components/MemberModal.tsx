@@ -377,7 +377,7 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
                 <div className="w-24 h-32 bg-slate-100 dark:bg-slate-800 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg flex items-center justify-center shrink-0 overflow-hidden relative group">
                   {(previewUrl || formData.foto_url) ? (
                     <>
-                      <img src={getDirectDriveLink(previewUrl || formData.foto_url)} alt="Preview" className="w-full h-full object-cover" />
+                      <img src={getDirectDriveLink(previewUrl || formData.foto_url)} alt="Preview" className="w-full h-full object-cover" crossOrigin="anonymous" referrerPolicy="no-referrer" />
                       <button 
                         type="button"
                         onClick={handleClearPhoto}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { collection, onSnapshot, query, setDoc, doc, deleteDoc, serverTimestamp, orderBy, where } from "firebase/firestore";
 import Papa from "papaparse";
-import { Download, Plus, Search, LogOut, Edit2, Trash2, Filter, Users, PieChart as PieChartIcon, MapPin, Settings, Upload, Menu, UserCheck, CheckCircle, AlertCircle, Info, X, ChevronDown, MoreVertical, Gift, Bell, Eye, TableProperties } from "lucide-react";
+import { Download, Plus, Search, LogOut, Edit2, Trash2, Filter, Users, PieChart as PieChartIcon, MapPin, Settings, Upload, Menu, UserCheck, CheckCircle, AlertCircle, Info, X, ChevronDown, MoreVertical, Gift, Bell, Eye, TableProperties, LayoutGrid, List } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 import { db } from "../lib/firebase";
@@ -53,6 +53,7 @@ export default function Dashboard() {
     }
     return true;
   });
+  const [birthdayView, setBirthdayView] = useState<'grid' | 'list'>('grid');
   const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
 
   // Notification State
@@ -992,7 +993,7 @@ export default function Dashboard() {
           {activeTab === 'birthdays' && (
             <div className="flex-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] flex flex-col min-h-0">
               <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 shrink-0">
-                <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+                <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
                   <div>
                     <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                        <Gift className="text-blue-600 dark:text-blue-400 w-5 h-5"/> Daftar Ulang Tahun Terdekat
@@ -1001,27 +1002,46 @@ export default function Dashboard() {
                       Menampilkan jemaat yang berulang tahun berdasarkan jarak hari terdekat dari <span className="font-semibold text-slate-700 dark:text-slate-200">{new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}</span>
                     </p>
                   </div>
-                  <select
-                    className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500 shadow-sm"
-                    value={birthdayStatusFilter}
-                    onChange={(e) => setBirthdayStatusFilter(e.target.value)}
-                  >
-                    <option value="">Semua Status</option>
-                    <option value="Aktif">Anggota Aktif</option>
-                    <option value="Keluar">Sudah Keluar</option>
-                  </select>
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="flex bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-1 shrink-0">
+                      <button
+                        onClick={() => setBirthdayView('grid')}
+                        className={`p-1.5 rounded-md transition-all ${birthdayView === 'grid' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                        title="Tampilan Grid"
+                      >
+                        <LayoutGrid className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setBirthdayView('list')}
+                        className={`p-1.5 rounded-md transition-all ${birthdayView === 'list' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                        title="Tampilan List"
+                      >
+                        <List className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <select
+                      className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500 shadow-sm flex-1 sm:w-[150px]"
+                      value={birthdayStatusFilter}
+                      onChange={(e) => setBirthdayStatusFilter(e.target.value)}
+                    >
+                      <option value="">Semua Status</option>
+                      <option value="Aktif">Anggota Aktif</option>
+                      <option value="Keluar">Sudah Keluar</option>
+                    </select>
+                  </div>
                 </div>
               </div>
               
-              <div className="overflow-auto flex-1 w-full bg-slate-50/50 dark:bg-slate-900/50 p-3 sm:p-4 md:p-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-                  {members
-                    .filter(m => birthdayStatusFilter === 'Aktif' ? !m.tanggal_keluar : birthdayStatusFilter === 'Keluar' ? !!m.tanggal_keluar : true)
-                    .map(m => ({ ...m, daysLeft: getDaysToBirthday(m.tanggal_lahir) }))
-                    .filter(m => m.daysLeft !== null)
-                    .sort((a, b) => (a.daysLeft as number) - (b.daysLeft as number))
-                    .map((m) => {
-                      const days = m.daysLeft as number;
+              <div className={`overflow-auto flex-1 w-full bg-slate-50/50 dark:bg-slate-900/50 ${birthdayView === 'grid' ? 'p-3 sm:p-4 md:p-6' : ''}`}>
+                {birthdayView === 'grid' ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                    {members
+                      .filter(m => birthdayStatusFilter === 'Aktif' ? !m.tanggal_keluar : birthdayStatusFilter === 'Keluar' ? !!m.tanggal_keluar : true)
+                      .map(m => ({ ...m, daysLeft: getDaysToBirthday(m.tanggal_lahir) }))
+                      .filter(m => m.daysLeft !== null)
+                      .sort((a, b) => (a.daysLeft as number) - (b.daysLeft as number))
+                      .map((m) => {
+                        const days = m.daysLeft as number;
                       const isToday = days === 0;
                       const isUpcoming = days > 0 && days <= 7;
                       const isActive = !m.tanggal_keluar;
@@ -1093,6 +1113,69 @@ export default function Dashboard() {
                      </div>
                   )}
                 </div>
+                ) : (
+                  <div className="bg-white dark:bg-slate-800 border-none sm:border-solid border-slate-200 dark:border-slate-700 sm:rounded-none m-0 p-0 overflow-x-auto min-h-0 w-full rounded-none">
+                    <table className="w-full text-left border-collapse text-sm whitespace-nowrap min-w-full">
+                      <thead className="bg-slate-50 dark:bg-slate-900 border-y sm:border-t-0 border-slate-200 dark:border-slate-700">
+                        <tr>
+                          <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">Nama Jemaat</th>
+                          <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">Tanggal Lahir</th>
+                          <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">Usia Mendatang</th>
+                          <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">Hitung Mundur</th>
+                          <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {members
+                          .filter(m => birthdayStatusFilter === 'Aktif' ? !m.tanggal_keluar : birthdayStatusFilter === 'Keluar' ? !!m.tanggal_keluar : true)
+                          .map(m => ({ ...m, daysLeft: getDaysToBirthday(m.tanggal_lahir) }))
+                          .filter(m => m.daysLeft !== null)
+                          .sort((a, b) => (a.daysLeft as number) - (b.daysLeft as number))
+                          .map((m) => {
+                            const days = m.daysLeft as number;
+                            const isToday = days === 0;
+                            const isActive = !m.tanggal_keluar;
+                            const birthDateObj = new Date(m.tanggal_lahir);
+                            const displayDate = birthDateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+                            const currentAge = new Date().getFullYear() - birthDateObj.getFullYear();
+                            const nextAge = currentAge + (new Date(new Date().getFullYear(), birthDateObj.getMonth(), birthDateObj.getDate()) < new Date() ? 1 : 0);
+
+                            return (
+                              <tr key={m.id} className={`border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors ${isToday ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
+                                <td className="p-3">
+                                  <div className="flex flex-col">
+                                    <span className={`font-semibold ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-slate-800 dark:text-slate-100'} truncate max-w-[200px]`}>
+                                      {m.nama_lengkap} {isToday && '🎂'}
+                                    </span>
+                                    <span className="text-xs font-mono text-slate-500 dark:text-slate-400">{m.nomor_anggota}</span>
+                                  </div>
+                                </td>
+                                <td className="p-3 text-slate-600 dark:text-slate-300">{displayDate}</td>
+                                <td className="p-3 text-slate-600 dark:text-slate-300">{nextAge} Tahun</td>
+                                <td className="p-3">
+                                  <span className={`px-2 py-1 rounded text-xs font-medium ${isToday ? 'bg-blue-600 text-white animate-pulse' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
+                                    {isToday ? 'HARI INI!' : `${days} Hari Lagi`}
+                                  </span>
+                                </td>
+                                <td className="p-3">
+                                  <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'}`}>
+                                    {isActive ? 'Aktif' : 'Keluar'}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                        })}
+                        {members.filter(m => m.tanggal_lahir && !isNaN(new Date(m.tanggal_lahir).getTime())).length === 0 && (
+                           <tr>
+                              <td colSpan={5} className="p-8 text-center text-slate-500 dark:text-slate-400">
+                                Belum ada data tanggal lahir yang valid untuk ditampilkan.
+                              </td>
+                           </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}
