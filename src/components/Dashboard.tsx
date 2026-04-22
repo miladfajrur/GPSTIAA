@@ -8,7 +8,7 @@ import { db } from "../lib/firebase";
 import { useAuth } from "../AuthContext";
 import { useTheme } from "../ThemeContext";
 import { Member } from "../types";
-import { formatDateDDMMYYYY } from "../lib/utils";
+import { formatDateDDMMYYYY, getDirectDriveLink } from "../lib/utils";
 import MemberModal from "./MemberModal";
 import MemberViewModal from "./MemberViewModal";
 import BulkEntryModal from "./BulkEntryModal";

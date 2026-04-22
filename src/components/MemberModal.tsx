@@ -5,7 +5,7 @@ import { storage } from "../lib/firebase";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { v4 as uuidv4 } from "uuid";
 import DateInputMask from "./DateInputMask";
-import { compressImage } from "../lib/utils";
+import { compressImage, getDirectDriveLink } from "../lib/utils";
 
 interface MemberModalProps {
   isOpen: boolean;
@@ -374,11 +374,10 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
               <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Foto Jemaat (Opsional)</label>
               
               <div className="flex flex-col sm:flex-row gap-4 items-start">
-                {/* Photo Preview */}
                 <div className="w-24 h-32 bg-slate-100 dark:bg-slate-800 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg flex items-center justify-center shrink-0 overflow-hidden relative group">
-                  {previewUrl ? (
+                  {(previewUrl || formData.foto_url) ? (
                     <>
-                      <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                      <img src={getDirectDriveLink(previewUrl || formData.foto_url)} alt="Preview" className="w-full h-full object-cover" />
                       <button 
                         type="button"
                         onClick={handleClearPhoto}
@@ -396,92 +395,28 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
                   )}
                 </div>
 
-                <div className="flex-1 w-full space-y-3">
-                  {/* URL Input */}
+                <div className="flex-1 w-full space-y-3 pt-6">
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-500 mb-1">Gunakan Link (G-Drive/URL Image)</label>
+                    <label className="block text-sm font-medium text-slate-500 mb-1">Gunakan Link Gambar (G-Drive / Hosting Foto Lain)</label>
                     <input
                       type="url"
                       name="foto_url"
-                      value={formData.foto_url}
+                      value={formData.foto_url || ""}
                       onChange={(e) => {
                         handleChange(e);
                         if (e.target.value) {
                           setPreviewUrl(e.target.value);
                           setSelectedFile(null);
                           if (fileInputRef.current) fileInputRef.current.value = "";
-                        } else if (!selectedFile) {
+                        } else {
                           setPreviewUrl(null);
                         }
                       }}
                       placeholder="https://..."
-                      className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                      className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
                     />
+                    <p className="text-xs text-slate-500 mt-2">Pastikan file Google Drive di-setting ke "Siapa saja yang memiliki link".</p>
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-400 dark:text-slate-500 w-full flex items-center gap-2">
-                       <span className="h-px bg-slate-200 dark:bg-slate-700 flex-1"></span>
-                       ATAU
-                       <span className="h-px bg-slate-200 dark:bg-slate-700 flex-1"></span>
-                    </span>
-                  </div>
-
-                  {/* File Importer */}
-                  <div>
-                    <label className="block text-[11px] font-medium text-slate-500 mb-1">Pilih atau Tarik File Gambar</label>
-                    <div className="relative">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileChange}
-                        ref={fileInputRef}
-                        className="hidden"
-                        id="foto_upload"
-                        disabled={isCompressing || isUploading}
-                      />
-                      <label 
-                        htmlFor="foto_upload"
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                        className={`cursor-pointer flex flex-col items-center justify-center gap-2 w-full px-3 py-6 border-2 border-dashed rounded-xl transition-all ${(isCompressing || isUploading) ? 'opacity-70 cursor-not-allowed border-slate-300' : isDragging ? 'border-blue-500 bg-blue-100 dark:border-blue-500 dark:bg-blue-900/40 transform scale-[1.02]' : 'border-slate-300 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
-                      >
-                        {isCompressing ? (
-                          <div className="flex flex-col items-center text-blue-600 dark:text-blue-400">
-                             <div className="w-6 h-6 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin mb-2"></div>
-                             <p className="text-sm font-semibold">Mengompresi Gambar...</p>
-                          </div>
-                        ) : isUploading ? (
-                          <div className="w-full px-4">
-                             <div className="flex justify-between text-xs text-blue-600 dark:text-blue-400 font-medium mb-1">
-                               <span>Mengunggah Foto...</span>
-                               <span>{Math.round(uploadProgress || 0)}%</span>
-                             </div>
-                             <div className="w-full bg-blue-100 dark:bg-slate-700 rounded-full h-2">
-                               <div className="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress || 0}%` }}></div>
-                             </div>
-                          </div>
-                        ) : (
-                          <>
-                            <Upload className={`w-6 h-6 ${isDragging ? 'text-blue-600 dark:text-blue-400 animate-bounce' : 'text-slate-400 dark:text-slate-500'}`} /> 
-                            <div className="text-center">
-                               <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                                 {isDragging ? 'Lepaskan gambar di sini' : 'Drag & Drop foto jemaat'}
-                               </p>
-                               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Sistem otomatis memperkecil memori file</p>
-                            </div>
-                          </>
-                        )}
-                      </label>
-                      {(selectedFile && !isCompressing && !isUploading) && (
-                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-2 flex items-center gap-1 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-md">
-                          <CheckCircle className="w-3 h-3" /> Foto siap: {selectedFile.name} ({formatFileSize(selectedFile.size)})
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  
                 </div>
               </div>
             </div>

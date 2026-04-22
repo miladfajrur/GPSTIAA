@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Member } from '../types';
 import { X, Download, User, Droplets, Clock, Image as ImageIcon } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
-import { formatDateDDMMYYYY } from '../lib/utils';
+import { formatDateDDMMYYYY, getDirectDriveLink } from '../lib/utils';
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 
@@ -143,7 +143,7 @@ export default function MemberViewModal({ isOpen, onClose, member }: MemberViewM
                <div className="w-full md:w-48 flex flex-col items-center shrink-0">
                   <div className="w-32 h-40 md:w-36 md:h-48 bg-slate-100 dark:bg-slate-800 rounded-xl border-4 border-white dark:border-slate-800 shadow-lg overflow-hidden relative mb-4">
                      {member.foto_url ? (
-                       <img src={member.foto_url} alt="Foto Jemaat" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                       <img src={getDirectDriveLink(member.foto_url)} alt="Foto Jemaat" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                      ) : (
                        <div className="text-center p-2 flex flex-col items-center justify-center h-full">
                          <User className="w-12 h-12 text-slate-300 dark:text-slate-500 mb-2" />

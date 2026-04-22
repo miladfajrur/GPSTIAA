@@ -100,3 +100,22 @@ export const compressImage = (file: File, maxWidth = 600, quality = 0.6): Promis
     reader.readAsDataURL(file);
   });
 };
+
+// Auto Export Google Drive Link
+export const getDirectDriveLink = (url: string | null | undefined): string => {
+  if (!url) return '';
+  
+  // Regex to extract the FILE_ID from standard Google Drive sharing links
+  // Handles:
+  // - https://drive.google.com/file/d/FILE_ID/view
+  // - https://drive.google.com/open?id=FILE_ID
+  const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
+  if (match && match[1]) {
+    const fileId = match[1];
+    // Return the high-speed export link that directly spits out the image bytes
+    return `https://drive.google.com/uc?export=view&id=${fileId}`;
+  }
+  
+  // If it's already a direct link or not a drive link, return as is
+  return url;
+};
