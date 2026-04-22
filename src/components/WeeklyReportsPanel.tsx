@@ -150,13 +150,13 @@ export default function WeeklyReportsPanel() {
                  <ResponsiveContainer width="100%" height="100%">
                    <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: -20 }}>
                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeOpacity={0.2} />
-                     <XAxis dataKey="name" tick={{fontSize: 10}} stroke="#94a3b8" />
-                     <YAxis tick={{fontSize: 10}} stroke="#94a3b8" />
+                     <XAxis dataKey="name" tick={{fontSize: 10, fill: document.documentElement.classList.contains('dark') ? '#94a3b8' : '#64748b'}} stroke="#94a3b8" />
+                     <YAxis tick={{fontSize: 10, fill: document.documentElement.classList.contains('dark') ? '#94a3b8' : '#64748b'}} stroke="#94a3b8" />
                      <RechartsTooltip 
-                        contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#f8fafc', fontSize: '12px' }}
-                        itemStyle={{ color: '#e2e8f0' }}
+                        contentStyle={{ backgroundColor: document.documentElement.classList.contains('dark') ? '#1e293b' : '#fff', border: 'none', borderRadius: '8px', color: document.documentElement.classList.contains('dark') ? '#f8fafc' : '#1e293b', fontSize: '12px' }}
+                        itemStyle={{ color: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#475569' }}
                      />
-                     <Legend wrapperStyle={{ fontSize: '11px' }} />
+                     <Legend wrapperStyle={{ fontSize: '11px', color: document.documentElement.classList.contains('dark') ? '#94a3b8' : '#475569' }} />
                      <Line type="monotone" dataKey="Dewasa" stroke="#1E3A8A" strokeWidth={2} dot={{ r: 3 }} />
                      <Line type="monotone" dataKey="Pemuda" stroke="#10B981" strokeWidth={2} dot={{ r: 3 }} />
                      <Line type="monotone" dataKey="Anak" stroke="#F59E0B" strokeWidth={2} dot={{ r: 3 }} />
@@ -172,11 +172,11 @@ export default function WeeklyReportsPanel() {
                  <ResponsiveContainer width="100%" height="100%">
                    <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: -20 }}>
                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeOpacity={0.2} />
-                     <XAxis dataKey="name" tick={{fontSize: 10}} stroke="#94a3b8" />
-                     <YAxis tick={{fontSize: 10}} stroke="#94a3b8" tickFormatter={(value) => `${(value/1000).toFixed(0)}k`} />
+                     <XAxis dataKey="name" tick={{fontSize: 10, fill: document.documentElement.classList.contains('dark') ? '#94a3b8' : '#64748b'}} stroke="#94a3b8" />
+                     <YAxis tick={{fontSize: 10, fill: document.documentElement.classList.contains('dark') ? '#94a3b8' : '#64748b'}} stroke="#94a3b8" tickFormatter={(value) => `${(value/1000).toFixed(0)}k`} />
                      <RechartsTooltip 
-                        contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#f8fafc', fontSize: '12px' }}
-                        itemStyle={{ color: '#e2e8f0' }}
+                        contentStyle={{ backgroundColor: document.documentElement.classList.contains('dark') ? '#1e293b' : '#fff', border: 'none', borderRadius: '8px', color: document.documentElement.classList.contains('dark') ? '#f8fafc' : '#1e293b', fontSize: '12px' }}
+                        itemStyle={{ color: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#475569' }}
                         formatter={(value: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value)}
                      />
                      <Legend wrapperStyle={{ fontSize: '11px' }} />

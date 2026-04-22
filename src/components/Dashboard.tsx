@@ -726,16 +726,6 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-
-              <button
-                onClick={() => {
-                  setSelectedMember(undefined);
-                  setIsModalOpen(true);
-                }}
-                className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-5 py-2 rounded-lg font-bold transition-all focus:outline-none shadow-sm shadow-blue-600/20 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0"
-              >
-                + Tambah Data
-              </button>
             </div>
           )}
         </header>
@@ -744,25 +734,25 @@ export default function Dashboard() {
           {activeTab === 'members' && (
             <>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 shrink-0">
-                <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)]">
-                  <p className="text-[10px] md:text-xs text-slate-500 font-medium uppercase truncate">Total Anggota</p>
-                  <p className="text-xl md:text-2xl font-bold text-blue-900">{members.length}</p>
+                <div className="bg-white dark:bg-slate-800 p-3 md:p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)]">
+                  <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-medium uppercase truncate">Total Anggota</p>
+                  <p className="text-xl md:text-2xl font-bold text-blue-900 dark:text-blue-100">{members.length}</p>
                 </div>
-                <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)]">
-                  <p className="text-[10px] md:text-xs text-slate-500 font-medium uppercase truncate">Jemaat Pria</p>
-                  <p className="text-xl md:text-2xl font-bold text-blue-900">{members.filter(m => m.jenis_kelamin === 'Pria').length}</p>
+                <div className="bg-white dark:bg-slate-800 p-3 md:p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)]">
+                  <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-medium uppercase truncate">Jemaat Pria</p>
+                  <p className="text-xl md:text-2xl font-bold text-blue-900 dark:text-blue-100">{members.filter(m => m.jenis_kelamin === 'Pria').length}</p>
                 </div>
-                <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)]">
-                  <p className="text-[10px] md:text-xs text-slate-500 font-medium uppercase truncate">Jemaat Wanita</p>
-                  <p className="text-xl md:text-2xl font-bold text-blue-900">{members.filter(m => m.jenis_kelamin === 'Wanita').length}</p>
+                <div className="bg-white dark:bg-slate-800 p-3 md:p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)]">
+                  <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-medium uppercase truncate">Jemaat Wanita</p>
+                  <p className="text-xl md:text-2xl font-bold text-blue-900 dark:text-blue-100">{members.filter(m => m.jenis_kelamin === 'Wanita').length}</p>
                 </div>
-                <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)]">
-                  <p className="text-[10px] md:text-xs text-slate-500 font-medium uppercase truncate">Update Terakhir</p>
-                  <p className="text-sm md:text-lg font-bold text-blue-900 mt-0 md:mt-2 truncate">Real-time</p>
+                <div className="bg-white dark:bg-slate-800 p-3 md:p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)]">
+                  <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-medium uppercase truncate">Update Terakhir</p>
+                  <p className="text-sm md:text-lg font-bold text-blue-900 dark:text-blue-100 mt-0 md:mt-2 truncate">Real-time</p>
                 </div>
               </div>
 
-              <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] flex flex-col min-h-0">
+              <div className="flex-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] flex flex-col min-h-0">
                 <div className="p-2.5 bg-slate-50 dark:bg-slate-800/30 border-b border-slate-200 dark:border-slate-700 flex flex-row items-center justify-between shrink-0 gap-4 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                   <div className="flex flex-nowrap items-center gap-2 w-max text-xs">
                     <div className="relative group">
@@ -777,6 +767,17 @@ export default function Dashboard() {
                     </div>
                     
                     <div className="h-4 w-px bg-slate-300 dark:bg-slate-600 mx-1"></div>
+
+                    <select
+                      className="border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm appearance-none pr-8 cursor-pointer relative"
+                      style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.2rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }}
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                    >
+                      <option value="">Semua Status</option>
+                      <option value="Aktif">Jemaat Aktif</option>
+                      <option value="Keluar">Sudah Keluar</option>
+                    </select>
 
                     <select
                       className="border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm appearance-none pr-8 cursor-pointer relative"
@@ -799,17 +800,6 @@ export default function Dashboard() {
                       <option value="Baptis Kecil">Baptis Kecil</option>
                       <option value="SIDI">SIDI</option>
                       <option value="Baptis Dewasa">Baptis Dewasa</option>
-                    </select>
-
-                    <select
-                      className="border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm appearance-none pr-8 cursor-pointer relative"
-                      style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.2rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }}
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                    >
-                      <option value="">Semua Status</option>
-                      <option value="Aktif">Anggota Aktif</option>
-                      <option value="Keluar">Sudah Keluar</option>
                     </select>
 
                     <div className="h-4 w-px bg-slate-300 dark:bg-slate-600 mx-1"></div>
@@ -835,8 +825,8 @@ export default function Dashboard() {
                 
                 <div className="overflow-auto flex-1 w-full relative">
                   <table className="w-full text-xs text-left border-collapse">
-                    <thead className="sticky top-0 bg-white shadow-sm z-10">
-                      <tr className="text-slate-400 uppercase font-bold border-b border-slate-200">
+                    <thead className="sticky top-0 bg-white dark:bg-slate-900 shadow-sm z-10 border-b border-slate-200 dark:border-slate-700">
+                      <tr className="text-slate-500 dark:text-slate-400 uppercase font-bold">
                         <th className="p-3">#</th>
                         <th className="p-3">No. Anggota</th>
                         <th className="p-3">Nama Lengkap</th>
@@ -850,14 +840,14 @@ export default function Dashboard() {
                         <th className="p-3 text-right">Aksi</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                       {isLoading ? (
                         <tr>
-                          <td colSpan={10} className="p-6 text-center text-slate-500">Memuat data...</td>
+                          <td colSpan={10} className="p-6 text-center text-slate-500 dark:text-slate-400">Memuat data...</td>
                         </tr>
                       ) : filteredMembers.length === 0 ? (
                         <tr>
-                          <td colSpan={11} className="p-6 text-center text-slate-500">Tidak ada data jemaat yang cocok.</td>
+                          <td colSpan={11} className="p-6 text-center text-slate-500 dark:text-slate-400">Tidak ada data jemaat yang cocok.</td>
                         </tr>
                       ) : (
                         paginatedMembers.map((member, idx) => {
@@ -868,8 +858,8 @@ export default function Dashboard() {
                           else if (member.jenis_baptis === "Baptis Kecil") badgeStyle = "bg-amber-100 text-amber-700";
 
                           return (
-                            <tr key={member.id} className="hover:bg-slate-50 group">
-                              <td className="p-3">{globalIdx}</td>
+                            <tr key={member.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+                              <td className="p-3 text-slate-700 dark:text-slate-300">{globalIdx}</td>
                               <td className="p-3">
                                 <button 
                                   onClick={() => {
@@ -882,16 +872,16 @@ export default function Dashboard() {
                                   {member.nomor_anggota}
                                 </button>
                               </td>
-                              <td className="p-3 font-semibold text-slate-800">
+                              <td className="p-3 font-semibold text-slate-800 dark:text-slate-100">
                                 <div>{member.nama_lengkap}</div>
                                 <span className={`inline-block mt-0.5 px-1.5 py-px rounded text-[9px] font-bold uppercase tracking-wider ${!member.tanggal_keluar ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'}`}>
                                   {!member.tanggal_keluar ? 'Aktif' : 'Keluar'}
                                 </span>
                               </td>
-                              <td className="p-3">{member.jenis_kelamin === 'Pria' ? 'Pria' : 'Wanita'}</td>
-                              <td className="p-3">{member.tempat_lahir}, {formatDateDDMMYYYY(member.tanggal_lahir)}</td>
-                              <td className="p-3 font-mono">{member.no_telp || '-'}</td>
-                              <td className="p-3 max-w-[150px] truncate" title={member.alamat_asal}>{member.alamat_asal}</td>
+                              <td className="p-3 text-slate-700 dark:text-slate-300">{member.jenis_kelamin === 'Pria' ? 'Pria' : 'Wanita'}</td>
+                              <td className="p-3 text-slate-700 dark:text-slate-300">{member.tempat_lahir}, {formatDateDDMMYYYY(member.tanggal_lahir)}</td>
+                              <td className="p-3 font-mono text-slate-700 dark:text-slate-300">{member.no_telp || '-'}</td>
+                              <td className="p-3 max-w-[150px] truncate text-slate-700 dark:text-slate-300" title={member.alamat_asal}>{member.alamat_asal}</td>
                               <td className="p-3">
                                 {member.jenis_baptis ? (
                                   <span className={`text-[10px] px-2 py-[2px] rounded-full font-semibold uppercase ${badgeStyle}`}>
@@ -941,15 +931,15 @@ export default function Dashboard() {
                 </div>
 
                 {totalPages > 1 && (
-                  <div className="p-4 bg-white border-t border-slate-200 flex justify-between items-center shrink-0">
-                    <span className="text-xs text-slate-500 font-medium">
+                  <div className="p-4 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center shrink-0">
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                       Menampilkan {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredMembers.length)} dari {filteredMembers.length} jemaat
                     </span>
                     <div className="flex gap-1">
                       <button
                         onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                         disabled={currentPage === 1}
-                        className="px-3 py-1 rounded border border-slate-200 text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 text-xs font-semibold focus:outline-none transition-colors"
+                        className="px-3 py-1 rounded border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold focus:outline-none transition-colors"
                       >
                         Sebelumnya
                       </button>
@@ -965,7 +955,7 @@ export default function Dashboard() {
                           <button
                             key={pageNum}
                             onClick={() => setCurrentPage(pageNum)}
-                            className={`px-3 py-1 rounded border text-xs font-semibold focus:outline-none transition-colors ${currentPage === pageNum ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                            className={`px-3 py-1 rounded border text-xs font-semibold focus:outline-none transition-colors ${currentPage === pageNum ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                           >
                             {pageNum}
                           </button>
@@ -975,7 +965,7 @@ export default function Dashboard() {
                       <button
                         onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                         disabled={currentPage === totalPages}
-                        className="px-3 py-1 rounded border border-slate-200 text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 text-xs font-semibold focus:outline-none transition-colors"
+                        className="px-3 py-1 rounded border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold focus:outline-none transition-colors"
                       >
                         Selanjutnya
                       </button>
@@ -1406,6 +1396,20 @@ export default function Dashboard() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Floating Action Button for Add Data */}
+      {activeTab === 'members' && (
+        <button
+          onClick={() => {
+            setSelectedMember(undefined);
+            setIsModalOpen(true);
+          }}
+          className="fixed bottom-6 right-6 md:bottom-10 md:right-10 z-[60] bg-blue-600 hover:bg-blue-700 text-white w-14 h-14 rounded-full shadow-[0_8px_25px_rgba(37,99,235,0.4)] hover:shadow-[0_12px_35px_rgba(37,99,235,0.5)] transform hover:-translate-y-1 active:scale-95 transition-all duration-300 flex items-center justify-center group focus:outline-none focus:ring-4 focus:ring-blue-500/30"
+          title="Tambah Data Jemaat"
+        >
+          <Plus className="w-6 h-6 transition-transform group-hover:rotate-90 duration-300" />
+        </button>
       )}
     </div>
   );

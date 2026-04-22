@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Member } from '../types';
 import { X, Download, User, Droplets, Clock, Image as ImageIcon } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
@@ -15,23 +15,63 @@ interface MemberViewModalProps {
 export default function MemberViewModal({ isOpen, onClose, member }: MemberViewModalProps) {
   const { isDarkMode } = useTheme();
   const printRef = useRef<HTMLDivElement>(null);
+  const modalContentRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isGeneratingImg, setIsGeneratingImg] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const updateScale = () => {
+      if (modalContentRef.current) {
+        const parentWidth = modalContentRef.current.offsetWidth;
+        // Padding is p-6 (24px) * 2 = 48px, plus small safe margin
+        const availableWidth = parentWidth - 64; 
+        if (availableWidth < 856) {
+           setScale(availableWidth / 856);
+        } else {
+           setScale(1);
+        }
+      }
+    };
+    
+    setTimeout(updateScale, 50);
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, [isOpen]);
 
   if (!isOpen || !member) return null;
 
   const prepareImage = async () => {
     if (!printRef.current) return null;
     
-    // Memberikan waktu browser untuk me-render gambar dari proxy wsrv
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Simpan skala asli dan force reset ke 1 sebelum capture agar tidak terpotong
+    const originalScale = scale;
+    setScale(1);
     
-    return await toPng(printRef.current, { 
-      cacheBust: true,
-      pixelRatio: 2,
-      skipFonts: true, // Melewati proses parsing font internal yang sering menyebabkan error ".trim()"
-      backgroundColor: isDarkMode ? '#0f172a' : '#ffffff',
-    });
+    // Memberikan waktu browser untuk me-render gambar pada ukuran asli (scale 1)
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    try {
+      const dataUrl = await toPng(printRef.current, { 
+        cacheBust: true,
+        pixelRatio: 2,
+        skipFonts: true, // Melewati proses parsing font internal yang sering menyebabkan error ".trim()"
+        backgroundColor: isDarkMode ? '#0f172a' : '#ffffff',
+        width: 856,
+        height: 540,
+        style: {
+          transform: 'scale(1)',
+          transformOrigin: 'top left',
+          margin: '0',
+        }
+      });
+      return dataUrl;
+    } finally {
+      // Kembalikan ke skala tampilan semula
+      setScale(originalScale);
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
   };
 
   const handleDownloadPDF = async () => {
@@ -116,16 +156,23 @@ export default function MemberViewModal({ isOpen, onClose, member }: MemberViewM
         </div>
 
         {/* Scrollable Content Zone */}
-        <div className="p-6 md:p-8 overflow-y-auto print:p-0 flex-1 bg-slate-100 dark:bg-slate-950">
+        <div ref={modalContentRef} className="p-6 md:p-8 overflow-y-auto overflow-x-hidden print:p-0 flex-1 bg-slate-100 dark:bg-slate-950 flex flex-col items-center">
           
           {/* Printable Card Container (Landscape ID Proportions width 856px, height 540px) 
-              We use a wrapper to scale constraints down visually but keep exact proportions for the png generator
+              We use a CSS Transform scale wrapper to avoid any scrollable boundaries clipping html-to-image captures.
           */}
-          <div className="w-full flex justify-center overflow-x-auto print:overflow-visible custom-scrollbar">
+          <div 
+            className="relative shrink-0 transition-transform duration-200"
+            style={{ width: `${856 * scale}px`, height: `${540 * scale}px` }}
+          >
             <div 
               ref={printRef} 
-              className="bg-white dark:bg-slate-900 shadow-xl overflow-hidden print:shadow-none print:m-0 flex flex-col relative font-sans shrink-0"
-              style={{ width: '856px', height: '540px' }}
+              className="bg-white dark:bg-slate-900 shadow-xl overflow-hidden print:shadow-none print:m-0 flex flex-col absolute top-0 left-0 origin-top-left font-sans shrink-0 border border-slate-200 dark:border-slate-800 rounded-xl"
+              style={{ 
+                width: '856px', 
+                height: '540px',
+                transform: `scale(${scale})`
+              }}
             >
               {/* Header / Banner */}
               <div className="bg-gradient-to-r from-blue-800 to-blue-600 text-white px-8 py-5 border-b-[6px] border-amber-400 flex flex-row items-center gap-6 relative overflow-hidden text-left h-[100px] shrink-0">
