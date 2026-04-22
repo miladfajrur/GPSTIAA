@@ -249,11 +249,19 @@ export default function Dashboard() {
     }
 
     try {
-      await setDoc(doc(db, "members", docId), payload, { merge: false });
+      const savePromise = setDoc(doc(db, "members", docId), payload, { merge: false });
+      
+      // Fallback timeout inside the promise chain so it never hangs infinitely
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Timeout: Gagal terhubung ke Firebase setelah 15 detik.")), 15000)
+      );
+      
+      await Promise.race([savePromise, timeoutPromise]);
+      
       addToast(`Data jemaat ${cleanData.nama_lengkap} berhasil ${isNew ? 'ditambahkan' : 'diperbarui'}!`, 'success');
     } catch (error) {
       console.error("Error saving member to Firestore:", error);
-      addToast("Gagal menyimpan data jemaat. Periksa koneksi atau rules Firestore.", "error");
+      addToast("Gagal menyimpan data jemaat. Periksa koneksi internet atu rules Firestore.", "error");
       throw error; // Re-throw to be caught by MemberModal
     }
   };

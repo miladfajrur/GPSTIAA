@@ -3,6 +3,7 @@ import { X, Plus, Save, Trash2, AlertCircle, TableProperties } from 'lucide-reac
 import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Member } from '../types';
+import DateInputMask from './DateInputMask';
 
 interface BulkEntryModalProps {
   isOpen: boolean;
@@ -181,7 +182,12 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
                     <input type="text" value={row.tempat_lahir} onChange={(e) => handleChange(row._localId, 'tempat_lahir', e.target.value)} className={inputClass} />
                   </td>
                   <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors w-32 relative">
-                    <input type="date" value={row.tanggal_lahir} onChange={(e) => handleChange(row._localId, 'tanggal_lahir', e.target.value)} className={`${inputClass} [&::-webkit-calendar-picker-indicator]:opacity-50`} />
+                    <DateInputMask
+                      name="tanggal_lahir" 
+                      value={row.tanggal_lahir} 
+                      onChange={(e) => handleChange(row._localId, 'tanggal_lahir', e.target.value)} 
+                      className={`${inputClass} font-mono`} 
+                    />
                   </td>
                   <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors">
                     <input type="text" value={row.alamat_asal} onChange={(e) => handleChange(row._localId, 'alamat_asal', e.target.value)} className={inputClass} />
@@ -198,7 +204,12 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
                     </select>
                   </td>
                   <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors w-32 relative">
-                    <input type="date" value={row.tanggal_masuk} onChange={(e) => handleChange(row._localId, 'tanggal_masuk', e.target.value)} className={`${inputClass} [&::-webkit-calendar-picker-indicator]:opacity-50`} />
+                    <DateInputMask
+                      name="tanggal_masuk" 
+                      value={row.tanggal_masuk} 
+                      onChange={(e) => handleChange(row._localId, 'tanggal_masuk', e.target.value)} 
+                      className={`${inputClass} font-mono`} 
+                    />
                   </td>
                   <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent text-center transition-colors">
                     <button 
