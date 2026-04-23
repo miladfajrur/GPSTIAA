@@ -3,6 +3,7 @@ import { X, Plus, Save, Trash2, AlertCircle, TableProperties } from 'lucide-reac
 import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Member } from '../types';
+import { formatNameTitleCase } from '../lib/utils';
 import DateInputMask from './DateInputMask';
 
 interface BulkEntryModalProps {
@@ -23,7 +24,9 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
     no_telp: "",
     alamat_asal: "",
     jenis_baptis: "",
-    tanggal_masuk: ""
+    keterangan_baptis: "",
+    tanggal_masuk: "",
+    tanggal_keluar: ""
   });
 
   const [rows, setRows] = useState(Array.from({ length: 10 }, createEmptyRow));
@@ -45,6 +48,24 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
     ));
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>, index: number, field: string) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const nextRowIndex = index + 1;
+      const nextInput = document.querySelector(`[data-rowindex="${nextRowIndex}"][data-col="${field}"]`) as HTMLElement;
+      if (nextInput) {
+        nextInput.focus();
+      } else if (nextRowIndex === rows.length) {
+        // Automatically add more rows if we hit the bottom
+        handleAddRows(1);
+        setTimeout(() => {
+          const addedInput = document.querySelector(`[data-rowindex="${nextRowIndex}"][data-col="${field}"]`) as HTMLElement;
+          if (addedInput) addedInput.focus();
+        }, 50);
+      }
+    }
+  };
+
   const handleSave = async () => {
     // Filter only rows that have at least a Name
     const validRows = rows.filter(r => r.nama_lengkap.trim() !== "");
@@ -61,23 +82,22 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
       for (const row of validRows) {
         const docId = doc(collection(db, "members")).id;
         
-        // Construct nomor_anggota if both no_urut and tahun exist, else use just one or leave empty
         let nomorAnggota = "";
         if (row.no_urut && row.tahun) nomorAnggota = `${row.no_urut}/GPSTIAA/${row.tahun}`;
         else if (row.no_urut) nomorAnggota = row.no_urut;
 
         const memberData: Member = {
           nomor_anggota: nomorAnggota,
-          nama_lengkap: row.nama_lengkap.trim(),
+          nama_lengkap: formatNameTitleCase(row.nama_lengkap.trim()),
           jenis_kelamin: (row.jenis_kelamin === "Pria" || row.jenis_kelamin === "Wanita") ? row.jenis_kelamin : "",
           tempat_lahir: row.tempat_lahir.trim(),
           tanggal_lahir: row.tanggal_lahir,
           no_telp: row.no_telp.trim(),
           alamat_asal: row.alamat_asal.trim(),
           jenis_baptis: row.jenis_baptis,
-          keterangan_baptis: "",
+          keterangan_baptis: row.keterangan_baptis.trim(),
           tanggal_masuk: row.tanggal_masuk,
-          tanggal_keluar: "",
+          tanggal_keluar: row.tanggal_keluar,
           foto_url: "",
           tenantId: "gpstiaa",
         };
@@ -100,10 +120,9 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
     } finally {
       setIsSaving(false);
     }
-
   };
 
-  const inputClass = "w-full min-w-[120px] bg-transparent border-0 border-b border-transparent focus:border-blue-500 focus:ring-0 px-2 py-1.5 text-sm text-slate-800 dark:text-slate-100 transition-colors";
+  const inputClass = "w-full min-w-[120px] bg-transparent border-0 border-b border-transparent focus:border-blue-500 focus:ring-0 px-2 py-1.5 text-sm text-slate-800 dark:text-slate-100 transition-colors placeholder:text-slate-400 dark:placeholder:text-slate-500";
   const selectClass = "w-full min-w-[110px] bg-transparent border-0 border-b border-transparent focus:border-blue-500 focus:ring-0 px-1 py-1.5 text-sm text-slate-800 dark:text-slate-100 transition-colors";
 
   return (
@@ -117,7 +136,7 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
           </div>
           <div>
             <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Input Massal (Grid)</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Isi baris layaknya spreadsheet Microsoft Excel. Baris kosong akan otomatis diabaikan.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Isi baris layaknya spreadsheet Microsoft Excel. Tekan <strong>Tab</strong> untuk ke kanan, <strong>Enter</strong> untuk turun. Baris kosong akan diabaikan.</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -154,7 +173,9 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700 min-w-[250px]">Alamat Asal</th>
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">No Telp</th>
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Jenis Baptis</th>
+                <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Ket Baptis</th>
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Tgl Masuk</th>
+                <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Tgl Keluar</th>
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700 text-center select-none w-12">Aksi</th>
               </tr>
             </thead>
@@ -163,51 +184,71 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
                 <tr key={row._localId} className="hover:bg-blue-50/50 dark:hover:bg-slate-800/80 group">
                   <td className="px-3 py-1 text-xs text-slate-400 text-center font-mono sticky left-0 bg-white dark:bg-slate-800 group-hover:bg-blue-50/50 dark:group-hover:bg-slate-800/80 z-10 transition-colors">{index + 1}</td>
                   <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors">
-                    <input type="text" value={row.no_urut} onChange={(e) => handleChange(row._localId, 'no_urut', e.target.value)} className={`${inputClass} w-16 text-center font-mono`} placeholder="001" />
+                    <input type="text" value={row.no_urut} onChange={(e) => handleChange(row._localId, 'no_urut', e.target.value)} onKeyDown={(e) => handleKeyDown(e, index, 'no_urut')} data-col="no_urut" data-rowindex={index} className={`${inputClass} w-16 text-center font-mono`} placeholder="001" />
                   </td>
                   <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors">
-                    <input type="text" value={row.tahun} onChange={(e) => handleChange(row._localId, 'tahun', e.target.value)} className={`${inputClass} w-16 text-center font-mono`} placeholder="2024" />
+                    <input type="text" value={row.tahun} onChange={(e) => handleChange(row._localId, 'tahun', e.target.value)} onKeyDown={(e) => handleKeyDown(e, index, 'tahun')} data-col="tahun" data-rowindex={index} className={`${inputClass} w-16 text-center font-mono`} placeholder="2024" />
                   </td>
                   <td className="px-2 py-1 border-l border-slate-200 dark:border-slate-700 sticky left-10 bg-white dark:bg-slate-800 group-hover:bg-blue-50/50 dark:group-hover:bg-slate-800/80 z-10 shadow-[1px_0_0_0_#f1f5f9] dark:shadow-[1px_0_0_0_#1e293b] transition-colors">
-                    <input type="text" value={row.nama_lengkap} onChange={(e) => handleChange(row._localId, 'nama_lengkap', e.target.value)} className={`${inputClass} font-semibold`} placeholder="Ketik nama (Wajib)..." />
+                    <input type="text" value={row.nama_lengkap} onChange={(e) => handleChange(row._localId, 'nama_lengkap', e.target.value)} onKeyDown={(e) => handleKeyDown(e, index, 'nama_lengkap')} data-col="nama_lengkap" data-rowindex={index} className={`${inputClass} font-semibold min-w-[200px]`} placeholder="Ketik nama (Wajib)..." />
                   </td>
                   <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors">
-                    <select value={row.jenis_kelamin} onChange={(e) => handleChange(row._localId, 'jenis_kelamin', e.target.value)} className={selectClass}>
+                    <select value={row.jenis_kelamin} onChange={(e) => handleChange(row._localId, 'jenis_kelamin', e.target.value)} onKeyDown={(e) => handleKeyDown(e, index, 'jenis_kelamin')} data-col="jenis_kelamin" data-rowindex={index} className={selectClass}>
                       <option value="">--</option>
                       <option value="Pria">Pria</option>
                       <option value="Wanita">Wanita</option>
                     </select>
                   </td>
                   <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors">
-                    <input type="text" value={row.tempat_lahir} onChange={(e) => handleChange(row._localId, 'tempat_lahir', e.target.value)} className={inputClass} />
+                    <input type="text" value={row.tempat_lahir} onChange={(e) => handleChange(row._localId, 'tempat_lahir', e.target.value)} onKeyDown={(e) => handleKeyDown(e, index, 'tempat_lahir')} data-col="tempat_lahir" data-rowindex={index} className={inputClass} placeholder="Kota lahir" />
                   </td>
                   <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors w-32 relative">
                     <DateInputMask
                       name="tanggal_lahir" 
                       value={row.tanggal_lahir} 
                       onChange={(e) => handleChange(row._localId, 'tanggal_lahir', e.target.value)} 
+                      onKeyDown={(e: any) => handleKeyDown(e, index, 'tanggal_lahir')} 
+                      data-col="tanggal_lahir" 
+                      data-rowindex={index} 
                       className={`${inputClass} font-mono`} 
                     />
                   </td>
                   <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors">
-                    <input type="text" value={row.alamat_asal} onChange={(e) => handleChange(row._localId, 'alamat_asal', e.target.value)} className={inputClass} />
+                    <input type="text" value={row.alamat_asal} onChange={(e) => handleChange(row._localId, 'alamat_asal', e.target.value)} onKeyDown={(e) => handleKeyDown(e, index, 'alamat_asal')} data-col="alamat_asal" data-rowindex={index} className={`${inputClass} min-w-[250px]`} placeholder="Alamat lengkap" />
                   </td>
                   <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors">
-                    <input type="tel" value={row.no_telp} onChange={(e) => handleChange(row._localId, 'no_telp', e.target.value)} className={`${inputClass} font-mono`} />
+                    <input type="tel" value={row.no_telp} onChange={(e) => handleChange(row._localId, 'no_telp', e.target.value)} onKeyDown={(e) => handleKeyDown(e, index, 'no_telp')} data-col="no_telp" data-rowindex={index} className={`${inputClass} font-mono`} placeholder="08..." />
                   </td>
                   <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors">
-                    <select value={row.jenis_baptis} onChange={(e) => handleChange(row._localId, 'jenis_baptis', e.target.value)} className={selectClass}>
+                    <select value={row.jenis_baptis} onChange={(e) => handleChange(row._localId, 'jenis_baptis', e.target.value)} onKeyDown={(e) => handleKeyDown(e, index, 'jenis_baptis')} data-col="jenis_baptis" data-rowindex={index} className={selectClass}>
                       <option value="">Belum</option>
                       <option value="Baptis Kecil">B. Kecil</option>
                       <option value="SIDI">SIDI</option>
                       <option value="Baptis Dewasa">B. Dewasa</option>
                     </select>
                   </td>
+                  <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors">
+                    <input type="text" value={row.keterangan_baptis} onChange={(e) => handleChange(row._localId, 'keterangan_baptis', e.target.value)} onKeyDown={(e) => handleKeyDown(e, index, 'keterangan_baptis')} data-col="keterangan_baptis" data-rowindex={index} className={inputClass} placeholder="Gereja Baptis..." />
+                  </td>
                   <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors w-32 relative">
                     <DateInputMask
                       name="tanggal_masuk" 
                       value={row.tanggal_masuk} 
                       onChange={(e) => handleChange(row._localId, 'tanggal_masuk', e.target.value)} 
+                      onKeyDown={(e: any) => handleKeyDown(e, index, 'tanggal_masuk')} 
+                      data-col="tanggal_masuk" 
+                      data-rowindex={index} 
+                      className={`${inputClass} font-mono`} 
+                    />
+                  </td>
+                  <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors w-32 relative">
+                    <DateInputMask
+                      name="tanggal_keluar" 
+                      value={row.tanggal_keluar} 
+                      onChange={(e) => handleChange(row._localId, 'tanggal_keluar', e.target.value)} 
+                      onKeyDown={(e: any) => handleKeyDown(e, index, 'tanggal_keluar')} 
+                      data-col="tanggal_keluar" 
+                      data-rowindex={index} 
                       className={`${inputClass} font-mono`} 
                     />
                   </td>

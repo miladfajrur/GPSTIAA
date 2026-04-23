@@ -12,7 +12,8 @@ export default function Login() {
     if (
       (username === "gpsttiaa" && password === "gpsttiaa") ||
       (username === "fajrur" && password === "fajrur") ||
-      (username === "anabk" && password === "anabk")
+      (username === "anabk" && password === "anabk") ||
+      (username === "fajrur1" && password === "fajrur1")
     ) {
       login(username);
     } else {

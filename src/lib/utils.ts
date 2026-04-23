@@ -103,6 +103,17 @@ export const compressImage = (file: File, maxWidth = 600, quality = 0.6): Promis
 
 // Auto Export & Proxy Image Link
 // Digunakan agar gambar dari Google Drive / tempat lain dapat dirender ke dalam HTML Canvas tanpa terblokir sistem keamanan Strict CORS (solusi bug saat unduh PDF/JPG).
+export const formatNameTitleCase = (name: string | undefined): string => {
+  if (!name) return '';
+  if (name === name.toUpperCase()) {
+    return name.toLowerCase().split(' ').map(word => {
+        if (!word) return '';
+        return word.charAt(0).toUpperCase() + word.slice(1);
+    }).join(' ');
+  }
+  return name;
+};
+
 export const getDirectDriveLink = (url: string | null | undefined): string => {
   if (!url) return '';
   

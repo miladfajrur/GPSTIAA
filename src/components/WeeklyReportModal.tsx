@@ -9,6 +9,17 @@ interface WeeklyReportModalProps {
   onSave: (data: Partial<WeeklyReport>) => Promise<void>;
 }
 
+const formatRupiah = (value: number | string) => {
+  const numberString = value.toString().replace(/[^,\d]/g, '');
+  if (!numberString) return '';
+  return new Intl.NumberFormat('id-ID').format(Number(numberString));
+};
+
+const parseRupiah = (value: string) => {
+  const numberString = value.replace(/[^,\d]/g, '');
+  return numberString ? Number(numberString) : 0;
+};
+
 export default function WeeklyReportModal({ isOpen, onClose, initialData, onSave }: WeeklyReportModalProps) {
   const [formData, setFormData] = useState<Partial<WeeklyReport>>({
     tanggal_ibadah: "",
@@ -20,6 +31,8 @@ export default function WeeklyReportModal({ isOpen, onClose, initialData, onSave
     perpuluhan: 0,
     diakonia: 0,
     pemasukan_lainnya: 0,
+    pengeluaran: 0,
+    keterangan_pengeluaran: "",
     keterangan: "",
     tenantId: "gpstiaa"
   });
@@ -39,6 +52,8 @@ export default function WeeklyReportModal({ isOpen, onClose, initialData, onSave
         perpuluhan: 0,
         diakonia: 0,
         pemasukan_lainnya: 0,
+        pengeluaran: 0,
+        keterangan_pengeluaran: "",
         keterangan: "",
         tenantId: "gpstiaa"
       });
@@ -52,6 +67,11 @@ export default function WeeklyReportModal({ isOpen, onClose, initialData, onSave
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
+  };
+
+  const handleRupiahChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: parseRupiah(value) }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -123,7 +143,7 @@ export default function WeeklyReportModal({ isOpen, onClose, initialData, onSave
                     name="kehadiran_dewasa"
                     min="0"
                     required
-                    value={formData.kehadiran_dewasa}
+                    value={formData.kehadiran_dewasa || ''}
                     onChange={handleChange}
                     className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
                   />
@@ -135,7 +155,7 @@ export default function WeeklyReportModal({ isOpen, onClose, initialData, onSave
                     name="kehadiran_pemuda"
                     min="0"
                     required
-                    value={formData.kehadiran_pemuda}
+                    value={formData.kehadiran_pemuda || ''}
                     onChange={handleChange}
                     className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
                   />
@@ -147,7 +167,7 @@ export default function WeeklyReportModal({ isOpen, onClose, initialData, onSave
                     name="kehadiran_anak"
                     min="0"
                     required
-                    value={formData.kehadiran_anak}
+                    value={formData.kehadiran_anak || ''}
                     onChange={handleChange}
                     className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
                   />
@@ -156,53 +176,101 @@ export default function WeeklyReportModal({ isOpen, onClose, initialData, onSave
             </div>
 
             <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
-              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Laporan Keuangan (Rp)</h3>
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Laporan Pemasukan (Rp)</h3>
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Persembahan Umum</label>
-                  <input
-                    type="number"
-                    name="persembahan_umum"
-                    min="0"
-                    required
-                    value={formData.persembahan_umum}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
-                  />
+                  <div className="relative mt-1 rounded-md shadow-sm">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                      <span className="text-slate-500 dark:text-slate-400 sm:text-sm">Rp</span>
+                    </div>
+                    <input
+                      type="text"
+                      name="persembahan_umum"
+                      required
+                      value={formatRupiah(formData.persembahan_umum || 0)}
+                      onChange={handleRupiahChange}
+                      className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 pl-10 pr-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Perpuluhan</label>
-                  <input
-                    type="number"
-                    name="perpuluhan"
-                    min="0"
-                    required
-                    value={formData.perpuluhan}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
-                  />
+                  <div className="relative mt-1 rounded-md shadow-sm">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                      <span className="text-slate-500 dark:text-slate-400 sm:text-sm">Rp</span>
+                    </div>
+                    <input
+                      type="text"
+                      name="perpuluhan"
+                      required
+                      value={formatRupiah(formData.perpuluhan || 0)}
+                      onChange={handleRupiahChange}
+                      className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 pl-10 pr-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Pemasukan Diakonia</label>
-                  <input
-                    type="number"
-                    name="diakonia"
-                    min="0"
-                    required
-                    value={formData.diakonia}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
-                  />
+                  <div className="relative mt-1 rounded-md shadow-sm">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                      <span className="text-slate-500 dark:text-slate-400 sm:text-sm">Rp</span>
+                    </div>
+                    <input
+                      type="text"
+                      name="diakonia"
+                      required
+                      value={formatRupiah(formData.diakonia || 0)}
+                      onChange={handleRupiahChange}
+                      className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 pl-10 pr-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Pemasukan Lainnya</label>
+                  <div className="relative mt-1 rounded-md shadow-sm">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                      <span className="text-slate-500 dark:text-slate-400 sm:text-sm">Rp</span>
+                    </div>
+                    <input
+                      type="text"
+                      name="pemasukan_lainnya"
+                      required
+                      value={formatRupiah(formData.pemasukan_lainnya || 0)}
+                      onChange={handleRupiahChange}
+                      className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 pl-10 pr-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Laporan Pengeluaran Kebutuhan (Rp)</h3>
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Total Pengeluaran</label>
+                  <div className="relative mt-1 rounded-md shadow-sm">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                      <span className="text-slate-500 dark:text-slate-400 sm:text-sm">Rp</span>
+                    </div>
+                    <input
+                      type="text"
+                      name="pengeluaran"
+                      value={formatRupiah(formData.pengeluaran || 0)}
+                      onChange={handleRupiahChange}
+                      className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 pl-10 pr-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Keterangan Pengeluaran</label>
                   <input
-                    type="number"
-                    name="pemasukan_lainnya"
-                    min="0"
-                    required
-                    value={formData.pemasukan_lainnya}
+                    type="text"
+                    name="keterangan_pengeluaran"
+                    value={formData.keterangan_pengeluaran || ''}
                     onChange={handleChange}
+                    placeholder="mis. Konsumsi, Listrik, Kebersihan"
                     className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
                   />
                 </div>
@@ -214,7 +282,7 @@ export default function WeeklyReportModal({ isOpen, onClose, initialData, onSave
               <textarea
                 name="keterangan"
                 rows={3}
-                value={formData.keterangan}
+                value={formData.keterangan || ''}
                 onChange={handleChange}
                 placeholder="Catatan tambahan, pembicara, ringkasan, dll."
                 className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"

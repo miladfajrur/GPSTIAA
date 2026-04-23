@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Member } from '../types';
 import { X, Download, User, Droplets, Clock, Image as ImageIcon } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
-import { formatDateDDMMYYYY, getDirectDriveLink } from '../lib/utils';
+import { formatDateDDMMYYYY, getDirectDriveLink, formatNameTitleCase } from '../lib/utils';
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 
@@ -10,9 +10,10 @@ interface MemberViewModalProps {
   isOpen: boolean;
   onClose: () => void;
   member: Member | null;
+  ketuaJemaat?: string;
 }
 
-export default function MemberViewModal({ isOpen, onClose, member }: MemberViewModalProps) {
+export default function MemberViewModal({ isOpen, onClose, member, ketuaJemaat = "Pdt. R.H. Siregar, M.Th" }: MemberViewModalProps) {
   const { isDarkMode } = useTheme();
   const printRef = useRef<HTMLDivElement>(null);
   const modalContentRef = useRef<HTMLDivElement>(null);
@@ -86,7 +87,7 @@ export default function MemberViewModal({ isOpen, onClose, member }: MemberViewM
       const pdfHeight = pdf.internal.pageSize.getHeight();
       
       pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Kartu_Jemaat_${member.nama_lengkap.replace(/\s+/g, '_')}.pdf`);
+      pdf.save(`Kartu_Jemaat_${formatNameTitleCase(member.nama_lengkap).replace(/\s+/g, '_')}.pdf`);
     } catch (e) {
        console.error("PDF generation failed:", e);
        alert("Gagal membuat PDF. Coba kembali.");
@@ -102,7 +103,7 @@ export default function MemberViewModal({ isOpen, onClose, member }: MemberViewM
       if (!dataUrl) return;
       
       const link = document.createElement('a');
-      link.download = `Kartu_Jemaat_${member.nama_lengkap.replace(/\s+/g, '_')}.png`;
+      link.download = `Kartu_Jemaat_${formatNameTitleCase(member.nama_lengkap).replace(/\s+/g, '_')}.png`;
       link.href = dataUrl;
       link.click();
     } catch (e) {
@@ -214,7 +215,7 @@ export default function MemberViewModal({ isOpen, onClose, member }: MemberViewM
                {/* Right Column: Biodata */}
                <div className="flex-1 w-full flex flex-col justify-start pt-2">
                   <div className="mb-4">
-                     <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase leading-tight truncate">{member.nama_lengkap}</h2>
+                     <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase leading-tight truncate">{formatNameTitleCase(member.nama_lengkap)}</h2>
                      <p className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400 mt-0.5 pb-2 border-b-2 border-slate-100 dark:border-slate-800">
                         NIA: {member.nomor_anggota || '-'}
                      </p>
@@ -276,7 +277,7 @@ export default function MemberViewModal({ isOpen, onClose, member }: MemberViewM
                </div>
                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-8">Ketua Jemaat</p>
                <div className="border-b-[1.5px] border-slate-800 dark:border-slate-300 w-full mb-0.5"></div>
-               <p className="text-[8px] text-slate-500 font-medium">GPSTIAA Siloam</p>
+               <p className="text-[8px] text-slate-500 font-medium whitespace-nowrap">{ketuaJemaat}</p>
             </div>
 
             {/* Giant Background Watermark */}

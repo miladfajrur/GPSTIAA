@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { collection, onSnapshot, query, setDoc, doc, deleteDoc, serverTimestamp, orderBy, where } from "firebase/firestore";
+import { collection, onSnapshot, query, setDoc, doc, deleteDoc, serverTimestamp, orderBy, where, getCountFromServer } from "firebase/firestore";
 import Papa from "papaparse";
 import { Download, Plus, Search, LogOut, Edit2, Trash2, Filter, Users, PieChart as PieChartIcon, MapPin, Settings, Upload, Menu, UserCheck, CheckCircle, AlertCircle, Info, X, ChevronDown, MoreVertical, Gift, Bell, Eye, TableProperties, LayoutGrid, List } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
@@ -8,7 +8,8 @@ import { db } from "../lib/firebase";
 import { useAuth } from "../AuthContext";
 import { useTheme } from "../ThemeContext";
 import { Member } from "../types";
-import { formatDateDDMMYYYY, getDirectDriveLink } from "../lib/utils";
+import { formatNameTitleCase, formatDateDDMMYYYY, getDirectDriveLink } from "../lib/utils";
+
 import MemberModal from "./MemberModal";
 import MemberViewModal from "./MemberViewModal";
 import BulkEntryModal from "./BulkEntryModal";
@@ -46,7 +47,10 @@ export default function Dashboard() {
 
   const [isBulkEntryOpen, setIsBulkEntryOpen] = useState(false);
 
-  const [activeTab, setActiveTab] = useState("members"); // "members", "stats", "map", "settings"
+  const [activeTab, setActiveTab] = useState(() => {
+    // If user is fajrur1, initially show birthdays
+    return "members"; // We'll handle fajrur1 default tab in useEffect since useAuth is inside component
+  });
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     if (typeof window !== 'undefined') {
       return window.innerWidth >= 768;
@@ -56,12 +60,19 @@ export default function Dashboard() {
   const [birthdayView, setBirthdayView] = useState<'grid' | 'list'>('grid');
   const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
 
+  const [ketuaJemaat, setKetuaJemaat] = useState(() => {
+    return localStorage.getItem('ketuaJemaat') || 'Pdt. R.H. Siregar, M.Th';
+  });
+
   // Notification State
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
   // Import state
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
+
+  // DB Quota Usage States
+  const [dbStats, setDbStats] = useState({ membersCount: 0, reportsCount: 0, loading: false });
 
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -100,7 +111,7 @@ export default function Dashboard() {
     if (members.length > 0 && !hasNotifiedBirthdays.current && !isLoading) {
       const todayBirthdays = members.filter(m => getDaysToBirthday(m.tanggal_lahir) === 0);
       if (todayBirthdays.length > 0) {
-        const names = todayBirthdays.map(m => m.nama_lengkap).join(', ');
+        const names = todayBirthdays.map(m => formatNameTitleCase(m.nama_lengkap)).join(', ');
         addToast(`🎉 Hari ini ulang tahun: ${names}!\nSelamat Ulang Tahun!`, 'info');
         hasNotifiedBirthdays.current = true;
       }
@@ -134,7 +145,7 @@ export default function Dashboard() {
           id: `bday-${m.id}`,
           type: 'birthday',
           title: 'Ulang Tahun Hari Ini!',
-          message: `${m.nama_lengkap} berulang tahun hari ini.🎉`,
+          message: `${formatNameTitleCase(m.nama_lengkap)} berulang tahun hari ini.🎉`,
           dateRef: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 7, 0, 0).getTime() // Virtual 7 AM
         });
       }
@@ -157,7 +168,7 @@ export default function Dashboard() {
             id: `new-${m.id}`,
             type: 'new_data',
             title: 'Data Berhasil Diinput',
-            message: `Data jemaat ${m.nama_lengkap} telah ditambahkan ke sistem.`,
+            message: `Data jemaat ${formatNameTitleCase(m.nama_lengkap)} telah ditambahkan ke sistem.`,
             dateRef: time
           });
         }
@@ -225,15 +236,63 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (activeTab === 'settings') {
+      const fetchDbStats = async () => {
+        setDbStats(prev => ({ ...prev, loading: true }));
+        try {
+          // Note: using client side count requires getCountFromServer
+          const membersQuery = query(collection(db, "members"));
+          const reportsQuery = query(collection(db, "weekly_reports"));
+          
+          const [membersSnap, reportsSnap] = await Promise.all([
+            getCountFromServer(membersQuery),
+            getCountFromServer(reportsQuery)
+          ]);
+
+          setDbStats({
+            membersCount: membersSnap.data().count,
+            reportsCount: reportsSnap.data().count,
+            loading: false
+          });
+        } catch (error) {
+          console.error("Error fetching db stats:", error);
+          setDbStats(prev => ({ ...prev, loading: false }));
+        }
+      };
+      
+      fetchDbStats();
+    }
+  }, [activeTab]);
+
   const handleSaveMember = async (memberData: Member) => {
     const { id, ...dataToSave } = memberData;
     const docId = id || doc(collection(db, "members")).id;
     const isNew = !id;
+
+    if (isNew && dataToSave.nomor_anggota) {
+        const isDuplicate = members.some((m) => m.nomor_anggota === dataToSave.nomor_anggota);
+        if (isDuplicate) {
+            addToast(`ID No. Anggota ${dataToSave.nomor_anggota} sudah ada di database.`, 'error');
+            throw new Error('DUPLICATE_ID');
+        }
+    } else if (!isNew && dataToSave.nomor_anggota) {
+        // Ensure another person doesn't have same ID
+        const isDuplicate = members.some((m) => m.nomor_anggota === dataToSave.nomor_anggota && m.id !== id);
+        if (isDuplicate) {
+            addToast(`ID No. Anggota ${dataToSave.nomor_anggota} sudah dipakai oleh jemaat lain.`, 'error');
+            throw new Error('DUPLICATE_ID');
+        }
+    }
     
     // Scrub undefined fields to prevent Firestore crash
     const cleanData = Object.fromEntries(
       Object.entries(dataToSave).filter(([_, v]) => v !== undefined)
     );
+    
+    if (cleanData.nama_lengkap && typeof cleanData.nama_lengkap === 'string') {
+        cleanData.nama_lengkap = formatNameTitleCase(cleanData.nama_lengkap);
+    }
 
     const payload: any = {
       ...cleanData,
@@ -496,6 +555,12 @@ export default function Dashboard() {
     setCurrentPage(1);
   }, [searchTerm, genderFilter, baptisFilter, statusFilter, sortBy]);
 
+  useEffect(() => {
+    if (user?.username === 'fajrur1') {
+      setActiveTab('birthdays');
+    }
+  }, [user]);
+
   const handleTabClick = (tab: string) => {
     setActiveTab(tab);
     if (window.innerWidth < 768) {
@@ -503,7 +568,20 @@ export default function Dashboard() {
     }
   };
 
-  const renderNavLinks = () => (
+  const renderNavLinks = () => {
+    if (user?.username === 'fajrur1') {
+      return (
+        <button 
+          onClick={() => handleTabClick("birthdays")}
+          className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'birthdays' ? 'bg-white bg-opacity-10 opacity-100' : 'opacity-60 hover:opacity-100'}`}
+        >
+          {activeTab === 'birthdays' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <Gift className="w-4 h-4" />}
+          Ulang Tahun
+        </button>
+      );
+    }
+
+    return (
     <>
       <button 
         onClick={() => handleTabClick("members")}
@@ -549,6 +627,7 @@ export default function Dashboard() {
       </button>
     </>
   );
+  };
 
   return (
     <div className={`flex h-screen w-full font-sans text-slate-800 dark:text-slate-100 overflow-hidden bg-slate-50 dark:bg-slate-900 ${isDarkMode ? 'dark' : ''}`}>
@@ -591,7 +670,7 @@ export default function Dashboard() {
                 <div className="truncate">
                   <p className="text-sm font-medium truncate">{user?.username}</p>
                   <p className="text-xs opacity-50">
-                    {user?.username === 'fajrur' ? 'Pemilik Utama' : 'Administrator'}
+                    {user?.username === 'fajrur' ? 'Pemilik Utama' : user?.username === 'fajrur1' ? 'Pelihat Ulang Tahun' : 'Administrator'}
                   </p>
                 </div>
               </div>
@@ -873,7 +952,7 @@ export default function Dashboard() {
                                 </button>
                               </td>
                               <td className="p-3 font-semibold text-slate-800 dark:text-slate-100">
-                                <div>{member.nama_lengkap}</div>
+                                <div>{formatNameTitleCase(member.nama_lengkap)}</div>
                                 <span className={`inline-block mt-0.5 px-1.5 py-px rounded text-[9px] font-bold uppercase tracking-wider ${!member.tanggal_keluar ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'}`}>
                                   {!member.tanggal_keluar ? 'Aktif' : 'Keluar'}
                                 </span>
@@ -1024,7 +1103,7 @@ export default function Dashboard() {
               
               <div className={`overflow-auto flex-1 w-full bg-slate-50/50 dark:bg-slate-900/50 ${birthdayView === 'grid' ? 'p-3 sm:p-4 md:p-6' : ''}`}>
                 {birthdayView === 'grid' ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5">
                     {members
                       .filter(m => birthdayStatusFilter === 'Aktif' ? !m.tanggal_keluar : birthdayStatusFilter === 'Keluar' ? !!m.tanggal_keluar : true)
                       .map(m => ({ ...m, daysLeft: getDaysToBirthday(m.tanggal_lahir) }))
@@ -1042,12 +1121,12 @@ export default function Dashboard() {
                       let iconBg = "bg-slate-100 dark:bg-slate-700/50";
                       
                       if (isToday) {
-                        cardStyle = "bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800 shadow-blue-100/50 dark:shadow-none ring-1 ring-blue-500 dark:ring-blue-600";
+                        cardStyle = "bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/40 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800 shadow-blue-100/50 dark:shadow-none ring-1 ring-blue-500 dark:ring-blue-600";
                         badgeStyle = "bg-blue-600 dark:bg-blue-500 text-white animate-pulse shadow-sm";
                         iconColor = "text-blue-600 dark:text-blue-400";
                         iconBg = "bg-blue-100 dark:bg-blue-900/50";
                       } else if (isUpcoming) {
-                        cardStyle = "bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-800/50";
+                        cardStyle = "bg-emerald-50/50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50";
                         badgeStyle = "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 font-semibold";
                         iconColor = "text-emerald-500 dark:text-emerald-400";
                       }
@@ -1058,36 +1137,39 @@ export default function Dashboard() {
                       const nextAge = currentAge + (new Date(new Date().getFullYear(), birthDateObj.getMonth(), birthDateObj.getDate()) < new Date() ? 1 : 0);
 
                       return (
-                        <div key={m.id} className={`p-4 rounded-xl border transition-all hover:shadow-md ${cardStyle} flex flex-col relative overflow-hidden`}>
+                        <div key={m.id} className={`p-4 sm:p-5 rounded-xl border transition-all hover:shadow-md ${cardStyle} flex flex-col relative overflow-hidden h-full`}>
                            {isToday && (
                              <div className="absolute -top-6 -right-6 text-blue-100 dark:text-blue-900/30 opacity-50 rotate-12 pointer-events-none">
                                <Gift size={100} />
                              </div>
                            )}
                            
-                           <div className="flex justify-between items-start mb-3 relative z-10">
-                             <div className="flex-1 min-w-0 pr-2">
-                                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base truncate" title={m.nama_lengkap}>{m.nama_lengkap}</h3>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <p className="text-xs font-mono text-slate-500 dark:text-slate-400">{m.nomor_anggota}</p>
-                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'}`}>
+                           <div className="flex justify-between items-start mb-4 relative z-10 gap-2 sm:gap-3">
+                             <div className="flex-1 min-w-0">
+                                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-[14px] sm:text-[15px] md:text-base leading-snug break-words" title={formatNameTitleCase(m.nama_lengkap)}>{formatNameTitleCase(m.nama_lengkap)}</h3>
+                                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-1.5">
+                                  {user?.username !== 'fajrur1' && (
+                                    <p className="text-[10px] sm:text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 break-all">{m.nomor_anggota || '-'}</p>
+                                  )}
+                                  <span className={`px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold uppercase tracking-wider whitespace-nowrap ${isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'}`}>
                                     {isActive ? 'Aktif' : 'Keluar'}
                                   </span>
                                 </div>
                              </div>
-                             <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${iconBg} ${iconColor}`}>
-                               <Gift className="w-5 h-5"/>
+                             <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 ${iconBg} ${iconColor}`}>
+                               <Gift className="w-4 h-4 sm:w-5 sm:h-5"/>
                              </div>
                            </div>
                            
-                           <div className="mt-auto space-y-3 relative z-10">
-                              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                                🎂 <span className="font-medium text-slate-700 dark:text-slate-200">{displayDate}</span> 
-                                <span className="text-xs text-slate-400 dark:text-slate-500">({nextAge} thn)</span>
+                           <div className="mt-auto space-y-2.5 sm:space-y-3 relative z-10">
+                              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-[13px] sm:text-sm text-slate-600 dark:text-slate-300">
+                                <span className="shrink-0 text-xs sm:text-sm">🎂</span>
+                                <span className="font-medium text-slate-700 dark:text-slate-200">{displayDate}</span> 
+                                <span className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 whitespace-nowrap">({nextAge} thn)</span>
                               </div>
-                              <div className="pt-3 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-                                 <span className="text-xs text-slate-500 dark:text-slate-400">Hitung Mundur:</span>
-                                 <span className={`px-2.5 py-1 rounded-md text-xs ${badgeStyle}`}>
+                              <div className="pt-2.5 sm:pt-3 border-t border-slate-100 dark:border-slate-700/50 flex flex-wrap items-center gap-2 justify-between">
+                                 <span className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">Hitung Mundur:</span>
+                                 <span className={`px-2 py-1 sm:px-2.5 rounded-md text-[10px] sm:text-[11px] md:text-xs font-semibold shrink-0 ${badgeStyle}`}>
                                    {isToday ? 'HARI INI!' : `${days} Hari Lagi`}
                                  </span>
                               </div>
@@ -1135,9 +1217,11 @@ export default function Dashboard() {
                                 <td className="p-3">
                                   <div className="flex flex-col">
                                     <span className={`font-semibold ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-slate-800 dark:text-slate-100'} truncate max-w-[200px]`}>
-                                      {m.nama_lengkap} {isToday && '🎂'}
+                                      {formatNameTitleCase(m.nama_lengkap)} {isToday && '🎂'}
                                     </span>
-                                    <span className="text-xs font-mono text-slate-500 dark:text-slate-400">{m.nomor_anggota}</span>
+                                    {user?.username !== 'fajrur1' && (
+                                      <span className="text-xs font-mono text-slate-500 dark:text-slate-400">{m.nomor_anggota}</span>
+                                    )}
                                   </div>
                                 </td>
                                 <td className="p-3 text-slate-600 dark:text-slate-300">{displayDate}</td>
@@ -1173,7 +1257,7 @@ export default function Dashboard() {
           {activeTab === 'stats' && (
             <div className="flex-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] p-4 sm:p-6 overflow-y-auto">
               <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 mb-4 sm:mb-6">Statistik Jemaat</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
                 <div className="bg-slate-50 dark:bg-slate-800/80 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
                   <h3 className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 text-center mb-4 uppercase tracking-wider">Demografi Kelamin</h3>
                   <div className="h-56 sm:h-64">
@@ -1213,6 +1297,26 @@ export default function Dashboard() {
                         <YAxis tick={{fontSize: 10, fill: isDarkMode ? '#94a3b8' : '#64748b'}} width={35} />
                         <Tooltip cursor={{fill: isDarkMode ? '#334155' : '#f1f5f9'}} contentStyle={{ backgroundColor: isDarkMode ? '#1e293b' : '#fff', borderColor: isDarkMode ? '#334155' : '#e2e8f0', color: isDarkMode ? '#f8fafc' : '#1e293b' }} />
                         <Bar dataKey="value" fill="#F59E0B" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 dark:bg-slate-800/80 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                  <h3 className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 text-center mb-4 uppercase tracking-wider">Status Keanggotaan</h3>
+                  <div className="h-56 sm:h-64 -ml-4 sm:-ml-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={[
+                        { name: 'Aktif', value: members.filter(m => !m.tanggal_keluar).length },
+                        { name: 'Keluar', value: members.filter(m => m.tanggal_keluar).length }
+                      ]}>
+                        <XAxis dataKey="name" tick={{fontSize: 10, fill: isDarkMode ? '#94a3b8' : '#64748b'}} interval={0} />
+                        <YAxis tick={{fontSize: 10, fill: isDarkMode ? '#94a3b8' : '#64748b'}} width={35} />
+                        <Tooltip cursor={{fill: isDarkMode ? '#334155' : '#f1f5f9'}} contentStyle={{ backgroundColor: isDarkMode ? '#1e293b' : '#fff', borderColor: isDarkMode ? '#334155' : '#e2e8f0', color: isDarkMode ? '#f8fafc' : '#1e293b' }} />
+                        <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                          <Cell fill="#10B981" />
+                          <Cell fill="#EF4444" />
+                        </Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -1288,6 +1392,25 @@ export default function Dashboard() {
                 </div>
 
                 <div className="space-y-4">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-700 pb-2">Data Organisasi</h3>
+                  <div className="flex flex-col gap-2 p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div>
+                      <p className="font-semibold text-slate-800 dark:text-slate-100">Nama Ketua Jemaat</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">Nama ini akan ditampilkan pada titi mangsa Kartu Jemaat yang diunduh</p>
+                    </div>
+                    <input 
+                      type="text" 
+                      value={ketuaJemaat}
+                      onChange={(e) => {
+                        setKetuaJemaat(e.target.value);
+                        localStorage.setItem('ketuaJemaat', e.target.value);
+                      }}
+                      className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-700 pb-2">Sistem Eksternal</h3>
                   <div className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
                     <div>
@@ -1297,6 +1420,48 @@ export default function Dashboard() {
                     <span className="flex items-center gap-2 text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Terhubung
                     </span>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-700 pb-2">Penggunaan Penyimpanan</h3>
+                  <div className="bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <p className="font-semibold text-slate-800 dark:text-slate-100">Kapasitas Dokumen (Firestore)</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Penggunaan limit data aplikasi</p>
+                      </div>
+                      <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg text-blue-600 dark:text-blue-400">
+                        <PieChartIcon className="w-5 h-5" />
+                      </div>
+                    </div>
+                    {dbStats.loading ? (
+                       <p className="text-sm text-slate-500 dark:text-slate-400 italic">Mengambil data penggunaan...</p>
+                    ) : (
+                      <>
+                        <div className="mb-2 flex justify-between text-sm font-medium text-slate-700 dark:text-slate-300">
+                          <span>{((dbStats.membersCount + dbStats.reportsCount) || 0).toLocaleString()} Indeks</span>
+                          <span>Batas Aman: 50.000</span>
+                        </div>
+                        <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5 mb-4 overflow-hidden flex">
+                          <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${Math.min(((dbStats.membersCount + dbStats.reportsCount) / 50000) * 100, 100)}%` }}></div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 mt-4">
+                           <div className="p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-lg">
+                              <p className="text-[10px] uppercase font-bold text-slate-400 mb-1">Data Jemaat</p>
+                              <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{dbStats.membersCount.toLocaleString()} <span className="text-xs font-normal text-slate-500">anggota</span></p>
+                           </div>
+                           <div className="p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-lg">
+                              <p className="text-[10px] uppercase font-bold text-slate-400 mb-1">Kalkulasi Memori</p>
+                              <p className="text-lg font-bold text-slate-700 dark:text-slate-200">~{(((dbStats.membersCount + dbStats.reportsCount) * 1.5) / 1024).toFixed(2)} <span className="text-xs font-normal text-slate-500">MB</span></p>
+                           </div>
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-4 leading-relaxed">
+                          Sistem saat ini mengalokasikan <span className="font-semibold text-slate-700 dark:text-slate-300">{(50000 - (dbStats.membersCount + dbStats.reportsCount)).toLocaleString()} ruang data kosong</span>. 
+                          Estimasi penggunaan memori didasarkan pada ~1.5KB per catatan/dokumen di database Firebase.
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1316,6 +1481,7 @@ export default function Dashboard() {
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
         member={memberToView}
+        ketuaJemaat={ketuaJemaat}
       />
 
       <BulkEntryModal
@@ -1332,7 +1498,7 @@ export default function Dashboard() {
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200">
             <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">Konfirmasi Penghapusan</h3>
             <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
-              Apakah Anda yakin ingin menghapus data jemaat ini? Tindakan ini tidak dapat dibatalkan.
+              Apakah Anda yakin ingin menghapus data jemaat <strong>{formatNameTitleCase(members.find(m => m.id === memberToDelete)?.nama_lengkap)}</strong>? Tindakan ini tidak dapat dibatalkan.
             </p>
             <div className="flex justify-end gap-3">
               <button

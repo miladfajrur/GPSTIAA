@@ -1,16 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { maskDateInput, parseIndonesianDateInput, toIndonesianDateInput } from '../lib/utils';
 
-interface DateInputMaskProps {
+export interface DateInputMaskProps extends React.InputHTMLAttributes<HTMLInputElement> {
   name: string;
   value: string;
   onChange: (e: { target: { name: string; value: string } }) => void;
-  required?: boolean;
-  className?: string;
-  placeholder?: string;
 }
 
-export default function DateInputMask({ name, value, onChange, required, className, placeholder = "DD-MM-YYYY" }: DateInputMaskProps) {
+export default function DateInputMask({ name, value, onChange, required, className, placeholder = "DD-MM-YYYY", ...rest }: DateInputMaskProps) {
   const [localValue, setLocalValue] = useState("");
 
   useEffect(() => {
@@ -31,11 +28,13 @@ export default function DateInputMask({ name, value, onChange, required, classNa
     const parsed = parseIndonesianDateInput(masked);
     onChange({
       target: { name, value: parsed }
-    });
+      // Mock event structure expected by callers needing just e.target.name and e.target.value
+    } as any);
   };
 
   return (
     <input
+      {...rest}
       type="text"
       name={name}
       required={required}

@@ -200,9 +200,11 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
     try {
       await onSave(currentData);
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("Terjadi kesalahan saat menyimpan data.");
+      if (error?.message !== 'DUPLICATE_ID') {
+        alert("Terjadi kesalahan saat menyimpan data.");
+      }
     } finally {
       setIsSubmitting(false);
     }

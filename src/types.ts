@@ -33,6 +33,8 @@ export interface WeeklyReport {
   perpuluhan: number;
   diakonia: number;
   pemasukan_lainnya: number;
+  pengeluaran: number;
+  keterangan_pengeluaran: string;
   keterangan: string;
   createdAt?: any;
   updatedAt?: any;
