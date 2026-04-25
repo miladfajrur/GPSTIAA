@@ -149,7 +149,7 @@ export default function WeeklyReportsPanel() {
       headStyles: { fillColor: [30, 58, 138] },
       styles: { fontSize: 11, cellPadding: 6 },
       columnStyles: {
-        0: { cellWidth: 'min' },
+        0: { cellWidth: 100 },
         1: { halign: 'right', cellWidth: 'auto', fontStyle: 'bold' } // align right for currency
       },
       didParseCell: function(data) {

@@ -189,7 +189,7 @@ export default function BulkReportModal({ isOpen, onClose, onSuccess }: BulkRepo
                       name="tanggal_ibadah" 
                       value={row.tanggal_ibadah} 
                       onChange={(e) => handleChange(row._localId, 'tanggal_ibadah', e.target.value)} 
-                      onKeyDown={(e: any) => handleKeyDown(e, index, 'tanggal_ibadah')} 
+                      onKeyDown={(e) => handleKeyDown(e as any, index, 'tanggal_ibadah')} 
                       data-col="tanggal_ibadah" 
                       data-rowindex={index} 
                       className={`${inputClass} font-mono`} 

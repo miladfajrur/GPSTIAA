@@ -114,6 +114,25 @@ export const formatNameTitleCase = (name: string | undefined): string => {
   return name;
 };
 
+// Calculate Days to Birthday
+export const getDaysToBirthday = (birthDateStr: string) => {
+  if (!birthDateStr) return null;
+  const bDate = new Date(birthDateStr);
+  if (isNaN(bDate.getTime())) return null;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const nextBday = new Date(today.getFullYear(), bDate.getMonth(), bDate.getDate());
+  
+  if (nextBday.getTime() < today.getTime()) {
+    nextBday.setFullYear(today.getFullYear() + 1);
+  }
+  
+  const diffTime = nextBday.getTime() - today.getTime();
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+};
+
 export const getDirectDriveLink = (url: string | null | undefined): string => {
   if (!url) return '';
   

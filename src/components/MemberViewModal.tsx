@@ -193,14 +193,13 @@ export default function MemberViewModal({ isOpen, onClose, member, ketuaJemaat =
               <div className="px-8 pb-8 pt-6 flex flex-row gap-8 relative z-10 flex-1">
                  {/* Left Column: Photo & Status */}
                  <div className="w-40 flex flex-col items-center shrink-0 pt-2">
-                    <div className="w-[120px] h-[160px] bg-slate-100 dark:bg-slate-800 rounded-xl border-4 border-white dark:border-slate-800 shadow-lg overflow-hidden relative mb-4">
-                       {member.foto_url ? (
-                         <img src={getDirectDriveLink(member.foto_url)} alt="Foto Jemaat" className="w-full h-full object-cover" crossOrigin="anonymous" referrerPolicy="no-referrer" />
-                       ) : (
-                         <div className="text-center p-2 flex flex-col items-center justify-center h-full">
+                    <div className="w-[120px] h-[160px] bg-slate-100 dark:bg-slate-800 rounded-xl border-4 border-white dark:border-slate-800 shadow-lg overflow-hidden relative mb-4 flex items-center justify-center">
+                         <div className="text-center p-2 flex flex-col items-center justify-center h-full absolute z-0">
                            <User className="w-10 h-10 text-slate-300 dark:text-slate-500 mb-2" />
                            <span className="text-[9px] text-slate-400 font-medium font-mono">3 x 4</span>
                          </div>
+                       {member.foto_url && (
+                         <img src={getDirectDriveLink(member.foto_url)} alt="Foto Jemaat" className="w-full h-full object-cover relative z-10" crossOrigin="anonymous" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                        )}
                     </div>
                     

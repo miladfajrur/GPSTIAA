@@ -8,12 +8,13 @@ import { db } from "../lib/firebase";
 import { useAuth } from "../AuthContext";
 import { useTheme } from "../ThemeContext";
 import { Member } from "../types";
-import { formatNameTitleCase, formatDateDDMMYYYY, getDirectDriveLink } from "../lib/utils";
+import { formatNameTitleCase, formatDateDDMMYYYY, getDirectDriveLink, getDaysToBirthday } from "../lib/utils";
 
 import MemberModal from "./MemberModal";
 import MemberViewModal from "./MemberViewModal";
 import BulkEntryModal from "./BulkEntryModal";
 import WeeklyReportsPanel from "./WeeklyReportsPanel";
+import MemberProfile from "./MemberProfile";
 
 export type ToastMessage = {
   id: number;
@@ -48,8 +49,7 @@ export default function Dashboard() {
   const [isBulkEntryOpen, setIsBulkEntryOpen] = useState(false);
 
   const [activeTab, setActiveTab] = useState(() => {
-    // If user is fajrur1, initially show birthdays
-    return "members"; // We'll handle fajrur1 default tab in useEffect since useAuth is inside component
+    return user?.username === 'fajrur1' ? 'birthdays' : 'members';
   });
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -67,6 +67,10 @@ export default function Dashboard() {
   // Notification State
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
+  // Profile View State
+  const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
+  const canViewProfile = ['anabk', 'fajrur'].includes(user?.username || '');
+
   // Import state
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
@@ -82,28 +86,7 @@ export default function Dashboard() {
   const [birthdayStatusFilter, setBirthdayStatusFilter] = useState("Aktif"); // Default to "Aktif" for Birthdays
   const [sortBy, setSortBy] = useState("nama_asc");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 15;
-
-  // Get Days to Birthday Helper
-  const getDaysToBirthday = (birthDateStr: string) => {
-    if (!birthDateStr) return null;
-    const bDate = new Date(birthDateStr);
-    if (isNaN(bDate.getTime())) return null;
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const nextBday = new Date(today.getFullYear(), bDate.getMonth(), bDate.getDate());
-    
-    if (nextBday.getTime() < today.getTime()) {
-      nextBday.setFullYear(today.getFullYear() + 1);
-    }
-    
-    // Check if it was exactly a leap year birthday that we should push to Mar 1 if not a leap year. JS Date handles Feb 29 on non-leap years as Mar 1.
-    
-    const diffTime = nextBday.getTime() - today.getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   
   const hasNotifiedBirthdays = useRef(false);
 
@@ -175,7 +158,7 @@ export default function Dashboard() {
       });
 
     return notifs.sort((a, b) => b.dateRef - a.dateRef);
-  }, [members, getDaysToBirthday]);
+  }, [members]);
 
   // Greeting Modal State
   const [greetingMessage, setGreetingMessage] = useState<string | null>(null);
@@ -573,7 +556,7 @@ export default function Dashboard() {
       return (
         <button 
           onClick={() => handleTabClick("birthdays")}
-          className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'birthdays' ? 'bg-white bg-opacity-10 opacity-100' : 'opacity-60 hover:opacity-100'}`}
+          className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'birthdays' ? 'bg-white/10 text-white font-medium opacity-100' : 'opacity-60 hover:opacity-100'}`}
         >
           {activeTab === 'birthdays' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <Gift className="w-4 h-4" />}
           Ulang Tahun
@@ -585,42 +568,42 @@ export default function Dashboard() {
     <>
       <button 
         onClick={() => handleTabClick("members")}
-        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'members' ? 'bg-white bg-opacity-10 opacity-100' : 'opacity-60 hover:opacity-100'}`}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'members' ? 'bg-white/10 text-white font-medium opacity-100' : 'opacity-60 hover:opacity-100'}`}
       >
         {activeTab === 'members' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <Users className="w-4 h-4" />}
         Data Anggota
       </button>
       <button 
         onClick={() => handleTabClick("birthdays")}
-        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'birthdays' ? 'bg-white bg-opacity-10 opacity-100' : 'opacity-60 hover:opacity-100'}`}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'birthdays' ? 'bg-white/10 text-white font-medium opacity-100' : 'opacity-60 hover:opacity-100'}`}
       >
         {activeTab === 'birthdays' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <Gift className="w-4 h-4" />}
         Ulang Tahun
       </button>
       <button 
         onClick={() => handleTabClick("reports")}
-        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'reports' ? 'bg-white bg-opacity-10 opacity-100' : 'opacity-60 hover:opacity-100'}`}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'reports' ? 'bg-white/10 text-white font-medium opacity-100' : 'opacity-60 hover:opacity-100'}`}
       >
         {activeTab === 'reports' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <UserCheck className="w-4 h-4" />}
         Data Kebaktian
       </button>
       <button 
         onClick={() => handleTabClick("stats")}
-        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'stats' ? 'bg-white bg-opacity-10 opacity-100' : 'opacity-60 hover:opacity-100'}`}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'stats' ? 'bg-white/10 text-white font-medium opacity-100' : 'opacity-60 hover:opacity-100'}`}
       >
         {activeTab === 'stats' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <PieChartIcon className="w-4 h-4" />}
         Statistik Jemaat
       </button>
       <button 
         onClick={() => handleTabClick("map")}
-        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'map' ? 'bg-white bg-opacity-10 opacity-100' : 'opacity-60 hover:opacity-100'}`}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'map' ? 'bg-white/10 text-white font-medium opacity-100' : 'opacity-60 hover:opacity-100'}`}
       >
         {activeTab === 'map' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <MapPin className="w-4 h-4" />}
         Pemetaan Jemaat
       </button>
       <button 
         onClick={() => handleTabClick("settings")}
-        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'settings' ? 'bg-white bg-opacity-10 opacity-100' : 'opacity-60 hover:opacity-100'}`}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'settings' ? 'bg-white/10 text-white font-medium opacity-100' : 'opacity-60 hover:opacity-100'}`}
       >
         {activeTab === 'settings' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <Settings className="w-4 h-4" />}
         Pengaturan Sistem
@@ -693,15 +676,22 @@ export default function Dashboard() {
               <Menu className="w-5 h-5 md:w-5 md:h-5" />
             </button>
             <h2 className="font-semibold text-base md:text-lg text-slate-800 dark:text-slate-100 truncate">
-              {activeTab === 'members' && "Data Anggota"}
-              {activeTab === 'birthdays' && "Ulang Tahun Anggota"}
-              {activeTab === 'reports' && "Laporan Mingguan"}
-              {activeTab === 'stats' && "Statistik Jemaat"}
-              {activeTab === 'map' && "Pemetaan Jemaat"}
-              {activeTab === 'settings' && "Pengaturan Sistem"}
+              {viewingProfileId && canViewProfile ? "Profil Anggota" : (
+                <>
+                  {activeTab === 'members' && "Data Anggota"}
+                  {activeTab === 'birthdays' && "Ulang Tahun Anggota"}
+                  {activeTab === 'reports' && "Laporan Mingguan"}
+                  {activeTab === 'stats' && "Statistik Jemaat"}
+                  {activeTab === 'map' && "Pemetaan Jemaat"}
+                  {activeTab === 'settings' && "Pengaturan Sistem"}
+                </>
+              )}
             </h2>
           </div>
-          {activeTab === 'members' && (
+          
+          {viewingProfileId && canViewProfile ? (
+            <></>
+          ) : (
             <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto justify-end">
               
               {/* Notification Bell */}
@@ -759,64 +749,73 @@ export default function Dashboard() {
                 className="hidden"
               />
               
-              <div className="relative group">
-                <button
-                  className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 focus:outline-none shadow-sm"
-                >
-                  Opsi Data <ChevronDown className="h-3.5 w-3.5 opacity-50 group-hover:rotate-180 transition-transform duration-200" />
-                </button>
-                
-                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 transform origin-top-right scale-95 group-hover:scale-100">
-                  <div className="p-1.5 flex flex-col gap-1">
-                    <button
-                      onClick={handleDownloadTemplate}
-                      className="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-md transition-colors flex items-center gap-2"
-                    >
-                      <Download className="h-3.5 w-3.5" /> Template CSV
-                    </button>
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isImporting}
-                      className="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-md transition-colors flex items-center gap-2 disabled:opacity-50"
-                    >
-                      {isImporting ? (
-                        <>
-                          <span className="w-3.5 h-3.5 border-2 border-slate-400 border-t-slate-700 rounded-full animate-spin shrink-0"></span> Mengimpor...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="h-3.5 w-3.5" /> Impor dari CSV
-                        </>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => setIsBulkEntryOpen(true)}
-                      className="w-full text-left px-3 py-2 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors flex items-center gap-2"
-                    >
-                      <TableProperties className="h-3.5 w-3.5" /> Input Massal (Grid)
-                    </button>
-                    <div className="h-px bg-slate-100 dark:bg-slate-700/50 my-1"></div>
-                    <button
-                      onClick={handleExportCSV}
-                      className="w-full text-left px-3 py-2 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors flex items-center gap-2"
-                    >
-                      <span className="text-sm">📥</span> Unduh format Excel
-                    </button>
+              {user?.username !== 'fajrur1' && (
+                <div className="relative group">
+                  <button
+                    className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 focus:outline-none shadow-sm"
+                  >
+                    Opsi Data <ChevronDown className="h-3.5 w-3.5 opacity-50 group-hover:rotate-180 transition-transform duration-200" />
+                  </button>
+                  
+                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 transform origin-top-right scale-95 group-hover:scale-100">
+                    <div className="p-1.5 flex flex-col gap-1">
+                      <button
+                        onClick={handleDownloadTemplate}
+                        className="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-md transition-colors flex items-center gap-2"
+                      >
+                        <Download className="h-3.5 w-3.5" /> Template CSV
+                      </button>
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isImporting}
+                        className="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-md transition-colors flex items-center gap-2 disabled:opacity-50"
+                      >
+                        {isImporting ? (
+                          <>
+                            <span className="w-3.5 h-3.5 border-2 border-slate-400 border-t-slate-700 rounded-full animate-spin shrink-0"></span> Mengimpor...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-3.5 w-3.5" /> Impor dari CSV
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setIsBulkEntryOpen(true)}
+                        className="w-full text-left px-3 py-2 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors flex items-center gap-2"
+                      >
+                        <TableProperties className="h-3.5 w-3.5" /> Input Massal (Grid)
+                      </button>
+                      <div className="h-px bg-slate-100 dark:bg-slate-700/50 my-1"></div>
+                      <button
+                        onClick={handleExportCSV}
+                        className="w-full text-left px-3 py-2 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors flex items-center gap-2"
+                      >
+                        <span className="text-sm">📥</span> Unduh format Excel
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </header>
 
         <div className="p-6 flex-1 flex flex-col gap-6 overflow-hidden">
-          {activeTab === 'members' && (
+          {viewingProfileId && canViewProfile ? (
+            <MemberProfile 
+              member={members.find(m => m.id === viewingProfileId)!} 
+              onBack={() => setViewingProfileId(null)} 
+            />
+          ) : (
             <>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 shrink-0">
-                <div className="bg-white dark:bg-slate-800 p-3 md:p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)]">
-                  <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-medium uppercase truncate">Total Anggota</p>
-                  <p className="text-xl md:text-2xl font-bold text-blue-900 dark:text-blue-100">{members.length}</p>
-                </div>
+              {activeTab === 'members' && (
+                <div className="flex-1 flex flex-col gap-6 overflow-hidden min-h-0">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 shrink-0">
+                    <div className="bg-white dark:bg-slate-800 p-3 md:p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)]">
+                      <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-medium uppercase truncate">Total Anggota</p>
+                      <p className="text-xl md:text-2xl font-bold text-blue-900 dark:text-blue-100">{members.length}</p>
+                    </div>
                 <div className="bg-white dark:bg-slate-800 p-3 md:p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)]">
                   <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-medium uppercase truncate">Jemaat Pria</p>
                   <p className="text-xl md:text-2xl font-bold text-blue-900 dark:text-blue-100">{members.filter(m => m.jenis_kelamin === 'Pria').length}</p>
@@ -940,16 +939,22 @@ export default function Dashboard() {
                             <tr key={member.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
                               <td className="p-3 text-slate-700 dark:text-slate-300">{globalIdx}</td>
                               <td className="p-3">
-                                <button 
-                                  onClick={() => {
-                                    setMemberToView(member);
-                                    setIsViewModalOpen(true);
-                                  }}
-                                  className="font-mono text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline cursor-pointer focus:outline-none text-left"
-                                  title="Lihat Detail Kartu Jemaat"
-                                >
-                                  {member.nomor_anggota}
-                                </button>
+                                {canViewProfile ? (
+                                  <button 
+                                    onClick={() => {
+                                      setMemberToView(member);
+                                      setIsViewModalOpen(true);
+                                    }}
+                                    className="font-mono text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline cursor-pointer focus:outline-none text-left"
+                                    title="Lihat Detail Kartu Jemaat"
+                                  >
+                                    {member.nomor_anggota}
+                                  </button>
+                                ) : (
+                                  <span className="font-mono text-slate-700 dark:text-slate-300">
+                                    {member.nomor_anggota}
+                                  </span>
+                                )}
                               </td>
                               <td className="p-3 font-semibold text-slate-800 dark:text-slate-100">
                                 <div>{formatNameTitleCase(member.nama_lengkap)}</div>
@@ -981,25 +986,29 @@ export default function Dashboard() {
                                 ) : '-'}
                               </td>
                               <td className="p-3 text-right">
-                                <div className="flex justify-end gap-2">
-                                  <button
-                                    onClick={() => {
-                                      setSelectedMember(member);
-                                      setIsModalOpen(true);
-                                    }}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 hover:border-blue-300 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                                    title="Edit Data"
-                                  >
-                                    <Edit2 className="h-3.5 w-3.5" /> Edit
-                                  </button>
-                                  <button
-                                    onClick={() => member.id && handleDeleteClick(member.id)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 hover:border-red-300 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm"
-                                    title="Hapus Data"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" /> Hapus
-                                  </button>
-                                </div>
+                                {user?.username !== 'fajrur1' ? (
+                                  <div className="flex justify-end gap-2">
+                                    <button
+                                      onClick={() => {
+                                        setSelectedMember(member);
+                                        setIsModalOpen(true);
+                                      }}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 hover:border-blue-300 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                                      title="Edit Data"
+                                    >
+                                      <Edit2 className="h-3.5 w-3.5" /> Edit
+                                    </button>
+                                    <button
+                                      onClick={() => member.id && handleDeleteClick(member.id)}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 hover:border-red-300 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm"
+                                      title="Hapus Data"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" /> Hapus
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400">-</span>
+                                )}
                               </td>
                             </tr>
                           );
@@ -1009,50 +1018,70 @@ export default function Dashboard() {
                   </table>
                 </div>
 
-                {totalPages > 1 && (
-                  <div className="p-4 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center shrink-0">
-                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                      Menampilkan {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredMembers.length)} dari {filteredMembers.length} jemaat
-                    </span>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                        disabled={currentPage === 1}
-                        className="px-3 py-1 rounded border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold focus:outline-none transition-colors"
+                {(totalPages > 0) && (
+                  <div className="p-4 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                        Menampilkan {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredMembers.length)} dari {filteredMembers.length} jemaat
+                      </span>
+                      <select 
+                        value={itemsPerPage}
+                        onChange={(e) => {
+                          setItemsPerPage(Number(e.target.value));
+                          setCurrentPage(1); // Reset to first page
+                        }}
+                        className="text-xs border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded px-2 py-1 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                       >
-                        Sebelumnya
-                      </button>
-                      
-                      {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => {
-                        let pageNum = i + 1;
-                        if (totalPages > 5 && currentPage > 3) {
-                          pageNum = currentPage - 2 + i;
-                          if (pageNum > totalPages) pageNum = totalPages - (4 - i);
-                        }
-                        
-                        return (
-                          <button
-                            key={pageNum}
-                            onClick={() => setCurrentPage(pageNum)}
-                            className={`px-3 py-1 rounded border text-xs font-semibold focus:outline-none transition-colors ${currentPage === pageNum ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
-                          >
-                            {pageNum}
-                          </button>
-                        );
-                      })}
-
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                        disabled={currentPage === totalPages}
-                        className="px-3 py-1 rounded border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold focus:outline-none transition-colors"
-                      >
-                        Selanjutnya
-                      </button>
+                        <option value={10}>10 baris</option>
+                        <option value={50}>50 baris</option>
+                        <option value={100}>100 baris</option>
+                        <option value={200}>200 baris</option>
+                        <option value={500}>500 baris</option>
+                        <option value={1000}>1000 baris</option>
+                      </select>
                     </div>
+                    
+                    {totalPages > 1 && (
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                          disabled={currentPage === 1}
+                          className="px-3 py-1 rounded border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold focus:outline-none transition-colors"
+                        >
+                          Sebelumnya
+                        </button>
+                        
+                        {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => {
+                          let pageNum = i + 1;
+                          if (totalPages > 5 && currentPage > 3) {
+                            pageNum = currentPage - 2 + i;
+                            if (pageNum > totalPages) pageNum = totalPages - (4 - i);
+                          }
+                          
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => setCurrentPage(pageNum)}
+                              className={`px-3 py-1 rounded border text-xs font-semibold focus:outline-none transition-colors ${currentPage === pageNum ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        })}
+
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                          disabled={currentPage === totalPages}
+                          className="px-3 py-1 rounded border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold focus:outline-none transition-colors"
+                        >
+                          Selanjutnya
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            </>
+            </div>
           )}
 
           {activeTab === 'reports' && (
@@ -1137,7 +1166,11 @@ export default function Dashboard() {
                       const nextAge = currentAge + (new Date(new Date().getFullYear(), birthDateObj.getMonth(), birthDateObj.getDate()) < new Date() ? 1 : 0);
 
                       return (
-                        <div key={m.id} className={`p-4 sm:p-5 rounded-xl border transition-all hover:shadow-md ${cardStyle} flex flex-col relative overflow-hidden h-full`}>
+                        <div 
+                          key={m.id} 
+                          onClick={() => canViewProfile && setViewingProfileId(m.id)}
+                          className={`p-4 sm:p-5 rounded-xl border transition-all ${cardStyle} flex flex-col relative overflow-hidden h-full ${canViewProfile ? 'hover:shadow-md cursor-pointer' : ''}`}
+                        >
                            {isToday && (
                              <div className="absolute -top-6 -right-6 text-blue-100 dark:text-blue-900/30 opacity-50 rotate-12 pointer-events-none">
                                <Gift size={100} />
@@ -1145,19 +1178,35 @@ export default function Dashboard() {
                            )}
                            
                            <div className="flex justify-between items-start mb-4 relative z-10 gap-2 sm:gap-3">
-                             <div className="flex-1 min-w-0">
-                                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-[14px] sm:text-[15px] md:text-base leading-snug break-words" title={formatNameTitleCase(m.nama_lengkap)}>{formatNameTitleCase(m.nama_lengkap)}</h3>
-                                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-1.5">
-                                  {user?.username !== 'fajrur1' && (
-                                    <p className="text-[10px] sm:text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 break-all">{m.nomor_anggota || '-'}</p>
+                             <div className="flex-1 min-w-0 space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-[14px] sm:text-[15px] md:text-base leading-snug break-words" title={formatNameTitleCase(m.nama_lengkap)}>
+                                    {formatNameTitleCase(m.nama_lengkap)}
+                                  </h3>
+                                  {user?.username !== 'fajrur1' && m.nomor_anggota && (
+                                    <span className="text-[10px] sm:text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 whitespace-nowrap self-start mt-0.5">
+                                      {m.nomor_anggota}
+                                    </span>
                                   )}
+                                </div>
+                                <div className="flex items-center mt-1">
                                   <span className={`px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold uppercase tracking-wider whitespace-nowrap ${isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'}`}>
                                     {isActive ? 'Aktif' : 'Keluar'}
                                   </span>
                                 </div>
                              </div>
-                             <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 ${iconBg} ${iconColor}`}>
-                               <Gift className="w-4 h-4 sm:w-5 sm:h-5"/>
+                             <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 ${!m.foto_url ? iconBg : 'bg-slate-200 dark:bg-slate-700'} ${iconColor} relative overflow-hidden`}>
+                               {m.foto_url && (
+                                 <img
+                                   src={getDirectDriveLink(m.foto_url)}
+                                   alt={m.nama_lengkap}
+                                   className="w-full h-full object-cover absolute inset-0 z-10"
+                                   onError={(e) => {
+                                     e.currentTarget.style.display = 'none';
+                                   }}
+                                 />
+                               )}
+                               <Gift className={`w-4 h-4 sm:w-5 sm:h-5 ${m.foto_url ? 'absolute z-0 opacity-50' : ''}`}/>
                              </div>
                            </div>
                            
@@ -1213,14 +1262,40 @@ export default function Dashboard() {
                             const nextAge = currentAge + (new Date(new Date().getFullYear(), birthDateObj.getMonth(), birthDateObj.getDate()) < new Date() ? 1 : 0);
 
                             return (
-                              <tr key={m.id} className={`border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors ${isToday ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
+                              <tr 
+                                key={m.id} 
+                                onClick={() => canViewProfile && setViewingProfileId(m.id)}
+                                className={`border-b border-slate-100 dark:border-slate-800/50 transition-colors ${canViewProfile ? 'hover:bg-slate-50 dark:hover:bg-slate-800/80 cursor-pointer' : ''} ${isToday ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                              >
                                 <td className="p-3">
-                                  <div className="flex flex-col">
-                                    <span className={`font-semibold ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-slate-800 dark:text-slate-100'} truncate max-w-[200px]`}>
-                                      {formatNameTitleCase(m.nama_lengkap)} {isToday && '🎂'}
-                                    </span>
-                                    {user?.username !== 'fajrur1' && (
-                                      <span className="text-xs font-mono text-slate-500 dark:text-slate-400">{m.nomor_anggota}</span>
+                                  <div className="flex flex-col gap-0.5">
+                                    <div className="flex items-center gap-2">
+                                      {m.foto_url && (
+                                        <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 relative overflow-hidden shrink-0">
+                                           <img
+                                             src={getDirectDriveLink(m.foto_url)}
+                                             alt={m.nama_lengkap}
+                                             className="w-full h-full object-cover absolute inset-0 z-10"
+                                             onError={(e) => {
+                                               e.currentTarget.style.display = 'none';
+                                             }}
+                                           />
+                                           <Gift className="w-4 h-4 absolute z-0 opacity-50 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-slate-400" />
+                                        </div>
+                                      )}
+                                      <span className={`font-semibold ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-slate-800 dark:text-slate-100'} truncate max-w-[200px] sm:max-w-xs md:max-w-sm`}>
+                                        {formatNameTitleCase(m.nama_lengkap)} {isToday && '🎂'}
+                                      </span>
+                                      {user?.username !== 'fajrur1' && m.nomor_anggota && (
+                                        <span className="text-[10px] sm:text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 whitespace-nowrap hidden sm:inline">
+                                          {m.nomor_anggota}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {user?.username !== 'fajrur1' && m.nomor_anggota && (
+                                      <span className="text-xs font-mono text-slate-500 dark:text-slate-400 sm:hidden">
+                                        {m.nomor_anggota}
+                                      </span>
                                     )}
                                   </div>
                                 </td>
@@ -1467,6 +1542,8 @@ export default function Dashboard() {
               </div>
             </div>
           )}
+          </>
+          )}
         </div>
       </main>
 
@@ -1478,7 +1555,7 @@ export default function Dashboard() {
       />
       
       <MemberViewModal
-        isOpen={isViewModalOpen}
+        isOpen={isViewModalOpen && canViewProfile}
         onClose={() => setIsViewModalOpen(false)}
         member={memberToView}
         ketuaJemaat={ketuaJemaat}
@@ -1565,7 +1642,7 @@ export default function Dashboard() {
       )}
 
       {/* Floating Action Button for Add Data */}
-      {activeTab === 'members' && (
+      {activeTab === 'members' && user?.username !== 'fajrur1' && (
         <button
           onClick={() => {
             setSelectedMember(undefined);

@@ -207,7 +207,7 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
                       name="tanggal_lahir" 
                       value={row.tanggal_lahir} 
                       onChange={(e) => handleChange(row._localId, 'tanggal_lahir', e.target.value)} 
-                      onKeyDown={(e: any) => handleKeyDown(e, index, 'tanggal_lahir')} 
+                      onKeyDown={(e) => handleKeyDown(e as any, index, 'tanggal_lahir')} 
                       data-col="tanggal_lahir" 
                       data-rowindex={index} 
                       className={`${inputClass} font-mono`} 
@@ -235,7 +235,7 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
                       name="tanggal_masuk" 
                       value={row.tanggal_masuk} 
                       onChange={(e) => handleChange(row._localId, 'tanggal_masuk', e.target.value)} 
-                      onKeyDown={(e: any) => handleKeyDown(e, index, 'tanggal_masuk')} 
+                      onKeyDown={(e) => handleKeyDown(e as any, index, 'tanggal_masuk')} 
                       data-col="tanggal_masuk" 
                       data-rowindex={index} 
                       className={`${inputClass} font-mono`} 
@@ -246,7 +246,7 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
                       name="tanggal_keluar" 
                       value={row.tanggal_keluar} 
                       onChange={(e) => handleChange(row._localId, 'tanggal_keluar', e.target.value)} 
-                      onKeyDown={(e: any) => handleKeyDown(e, index, 'tanggal_keluar')} 
+                      onKeyDown={(e) => handleKeyDown(e as any, index, 'tanggal_keluar')} 
                       data-col="tanggal_keluar" 
                       data-rowindex={index} 
                       className={`${inputClass} font-mono`} 

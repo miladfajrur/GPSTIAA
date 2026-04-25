@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { maskDateInput, parseIndonesianDateInput, toIndonesianDateInput } from '../lib/utils';
 
-export interface DateInputMaskProps extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface DateInputMaskProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
   name: string;
   value: string;
   onChange: (e: { target: { name: string; value: string } }) => void;
 }
 
-export default function DateInputMask({ name, value, onChange, required, className, placeholder = "DD-MM-YYYY", ...rest }: DateInputMaskProps) {
+export default function DateInputMask({ name, value, onChange, ...rest }: DateInputMaskProps) {
   const [localValue, setLocalValue] = useState("");
 
   useEffect(() => {
@@ -37,12 +37,9 @@ export default function DateInputMask({ name, value, onChange, required, classNa
       {...rest}
       type="text"
       name={name}
-      required={required}
       value={localValue}
       onChange={handleChange}
-      placeholder={placeholder}
       maxLength={10}
-      className={className}
     />
   );
 }
