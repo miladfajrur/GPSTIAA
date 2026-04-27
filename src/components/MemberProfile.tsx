@@ -87,9 +87,27 @@ export default function MemberProfile({ member, onBack }: MemberProfileProps) {
               <div className="space-y-3">
                  <div>
                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Tempat, Tanggal Lahir</p>
-                   <p className="text-sm font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                     <Calendar className="w-4 h-4 text-slate-400" />
-                     {member.tempat_lahir || '-'}, {member.tanggal_lahir ? new Date(member.tanggal_lahir).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'}) : '-'}
+                   <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-slate-800 dark:text-slate-200">
+                     <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+                     <span>{member.tempat_lahir || '-'}, {member.tanggal_lahir ? new Date(member.tanggal_lahir).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'}) : '-'}</span>
+                     {member.tanggal_lahir && (() => {
+                        const birthDateObj = new Date(member.tanggal_lahir);
+                        if (isNaN(birthDateObj.getTime())) return null;
+                        const todayDate = new Date();
+                        todayDate.setHours(0, 0, 0, 0);
+                        const nextBirthdayThisYear = new Date(todayDate.getFullYear(), birthDateObj.getMonth(), birthDateObj.getDate());
+                        const hasPassed = nextBirthdayThisYear.getTime() <= todayDate.getTime();
+                        let currentAge = todayDate.getFullYear() - birthDateObj.getFullYear();
+                        if (!hasPassed) {
+                           currentAge -= 1;
+                        }
+                        if (currentAge < 0) currentAge = 0;
+                        return (
+                          <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full text-[10px] font-bold border border-blue-100 dark:border-blue-800">
+                            {currentAge} Tahun
+                          </span>
+                        );
+                     })()}
                    </p>
                  </div>
                  <div>

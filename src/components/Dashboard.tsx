@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { collection, onSnapshot, query, setDoc, doc, deleteDoc, serverTimestamp, orderBy, where, getCountFromServer } from "firebase/firestore";
 import Papa from "papaparse";
-import { Download, Plus, Search, LogOut, Edit2, Trash2, Filter, Users, PieChart as PieChartIcon, MapPin, Settings, Upload, Menu, UserCheck, CheckCircle, AlertCircle, Info, X, ChevronDown, MoreVertical, Gift, Bell, Eye, TableProperties, LayoutGrid, List } from "lucide-react";
+import { ArrowLeft, Download, Plus, Search, LogOut, Edit2, Trash2, Filter, Users, PieChart as PieChartIcon, MapPin, Settings, Upload, Menu, UserCheck, CheckCircle, AlertCircle, Info, X, ChevronDown, MoreVertical, Gift, Bell, Eye, TableProperties, LayoutGrid, List } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 import { db } from "../lib/firebase";
@@ -59,6 +59,7 @@ export default function Dashboard() {
   });
   const [birthdayView, setBirthdayView] = useState<'grid' | 'list'>('grid');
   const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
+  const [selectedMapArea, setSelectedMapArea] = useState<string | null>(null);
 
   const [ketuaJemaat, setKetuaJemaat] = useState(() => {
     return localStorage.getItem('ketuaJemaat') || 'Pdt. R.H. Siregar, M.Th';
@@ -645,15 +646,17 @@ export default function Dashboard() {
             {renderNavLinks()}
           </nav>
           <div className="mt-auto pt-6 border-t border-white border-opacity-10 flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between gap-2 overflow-hidden">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div className="w-10 h-10 rounded-full bg-blue-700 flex items-center justify-center font-bold uppercase shrink-0">
-                  {user?.username?.[0] || 'U'}
+                  {user?.username === 'anabk' ? 'A' : (user?.username?.[0] || 'U')}
                 </div>
-                <div className="truncate">
-                  <p className="text-sm font-medium truncate">{user?.username}</p>
-                  <p className="text-xs opacity-50">
-                    {user?.username === 'fajrur' ? 'Pemilik Utama' : user?.username === 'fajrur1' ? 'Pelihat Ulang Tahun' : 'Administrator'}
+                <div className="truncate min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate" title={user?.username === 'anabk' ? 'Dr. Ana Budi Kristiani, S.Sn., M.M' : user?.username}>
+                    {user?.username === 'anabk' ? 'Dr. Ana Budi Kristiani, S.Sn., M.M' : user?.username}
+                  </p>
+                  <p className="text-xs opacity-50 truncate">
+                    {user?.username === 'fajrur' ? 'Pemilik Utama' : user?.username === 'fajrur1' ? 'Pelihat Ulang Tahun' : user?.username === 'anabk' ? 'Ketua Jemaat' : 'Administrator'}
                   </p>
                 </div>
               </div>
@@ -963,7 +966,25 @@ export default function Dashboard() {
                                 </span>
                               </td>
                               <td className="p-3 text-slate-700 dark:text-slate-300">{member.jenis_kelamin === 'Pria' ? 'Pria' : 'Wanita'}</td>
-                              <td className="p-3 text-slate-700 dark:text-slate-300">{member.tempat_lahir}, {formatDateDDMMYYYY(member.tanggal_lahir)}</td>
+                              <td className="p-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                                <div>{member.tempat_lahir}, {formatDateDDMMYYYY(member.tanggal_lahir)}</div>
+                                {member.tanggal_lahir && (() => {
+                                   const birthDateObj = new Date(member.tanggal_lahir);
+                                   if (isNaN(birthDateObj.getTime())) return null;
+                                   const todayDate = new Date();
+                                   todayDate.setHours(0, 0, 0, 0);
+                                   const nextBirthdayThisYear = new Date(todayDate.getFullYear(), birthDateObj.getMonth(), birthDateObj.getDate());
+                                   const hasPassed = nextBirthdayThisYear.getTime() <= todayDate.getTime();
+                                   let currentAge = todayDate.getFullYear() - birthDateObj.getFullYear();
+                                   if (!hasPassed) currentAge -= 1;
+                                   if (currentAge < 0) currentAge = 0;
+                                   return (
+                                     <span className="inline-block mt-0.5 text-[10px] text-slate-500 font-medium">
+                                       (Usia {currentAge} thn)
+                                     </span>
+                                   );
+                                })()}
+                              </td>
                               <td className="p-3 font-mono text-slate-700 dark:text-slate-300">{member.no_telp || '-'}</td>
                               <td className="p-3 max-w-[150px] truncate text-slate-700 dark:text-slate-300" title={member.alamat_asal}>{member.alamat_asal}</td>
                               <td className="p-3">
@@ -1130,7 +1151,7 @@ export default function Dashboard() {
                 </div>
               </div>
               
-              <div className={`overflow-auto flex-1 w-full bg-slate-50/50 dark:bg-slate-900/50 ${birthdayView === 'grid' ? 'p-3 sm:p-4 md:p-6' : ''}`}>
+              <div className={`flex-1 w-full bg-slate-50/50 dark:bg-slate-900/50 flex flex-col min-h-0 ${birthdayView === 'grid' ? 'p-3 sm:p-4 md:p-6 overflow-auto' : 'overflow-hidden'}`}>
                 {birthdayView === 'grid' ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5">
                     {members
@@ -1162,23 +1183,46 @@ export default function Dashboard() {
                       
                       const birthDateObj = new Date(m.tanggal_lahir);
                       const displayDate = birthDateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long' });
-                      const currentAge = new Date().getFullYear() - birthDateObj.getFullYear();
-                      const nextAge = currentAge + (new Date(new Date().getFullYear(), birthDateObj.getMonth(), birthDateObj.getDate()) < new Date() ? 1 : 0);
+                      const todayDate = new Date();
+                      todayDate.setHours(0, 0, 0, 0);
+                      const nextBirthdayThisYear = new Date(todayDate.getFullYear(), birthDateObj.getMonth(), birthDateObj.getDate());
+                      const hasPassed = nextBirthdayThisYear.getTime() < todayDate.getTime();
+                      const currentAge = todayDate.getFullYear() - birthDateObj.getFullYear();
+                      const nextAge = currentAge + (hasPassed ? 1 : 0);
 
                       return (
                         <div 
                           key={m.id} 
                           onClick={() => canViewProfile && setViewingProfileId(m.id)}
-                          className={`p-4 sm:p-5 rounded-xl border transition-all ${cardStyle} flex flex-col relative overflow-hidden h-full ${canViewProfile ? 'hover:shadow-md cursor-pointer' : ''}`}
+                          className={`p-4 sm:p-5 rounded-xl border transition-all ${cardStyle} flex flex-col relative overflow-hidden h-full ${canViewProfile ? 'hover:shadow-md hover:-translate-y-1 cursor-pointer' : ''}`}
                         >
-                           {isToday && (
+                           {/* Decorative gift icon */}
+                           {isToday ? (
                              <div className="absolute -top-6 -right-6 text-blue-100 dark:text-blue-900/30 opacity-50 rotate-12 pointer-events-none">
                                <Gift size={100} />
                              </div>
-                           )}
+                           ) : isUpcoming ? (
+                             <div className="absolute -top-6 -right-6 text-emerald-100 dark:text-emerald-900/20 opacity-50 rotate-12 pointer-events-none">
+                               <Gift size={100} />
+                             </div>
+                           ) : null}
+
+                           {/* Remaining days bold badge at top-right inside */}
+                           <div className="absolute top-0 right-0 p-3 flex flex-col items-end">
+                             {isToday ? (
+                               <div className="bg-blue-600 text-white animate-pulse px-3 py-1 rounded-bl-xl rounded-tr-lg font-black text-xs sm:text-sm tracking-wide shadow-md flex items-center justify-center -mr-0.5 -mt-0.5">
+                                 HARI INI! 🎉
+                               </div>
+                             ) : (
+                               <div className="flex flex-col items-center bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 shadow-sm rounded-lg px-3 py-1.5 min-w-[3.5rem] mt-1 mr-1">
+                                 <span className="font-black text-lg sm:text-xl text-slate-800 dark:text-slate-100 leading-none">{days}</span>
+                                 <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-tight mt-0.5">Hari</span>
+                               </div>
+                             )}
+                           </div>
                            
-                           <div className="flex justify-between items-start mb-4 relative z-10 gap-2 sm:gap-3">
-                             <div className="flex-1 min-w-0 space-y-1">
+                           <div className="flex justify-between items-start mb-4 relative z-10 gap-2 sm:gap-3 mt-4">
+                             <div className="flex-1 min-w-0 space-y-1 pr-6">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <h3 className="font-bold text-slate-800 dark:text-slate-100 text-[14px] sm:text-[15px] md:text-base leading-snug break-words" title={formatNameTitleCase(m.nama_lengkap)}>
                                     {formatNameTitleCase(m.nama_lengkap)}
@@ -1195,32 +1239,31 @@ export default function Dashboard() {
                                   </span>
                                 </div>
                              </div>
-                             <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 ${!m.foto_url ? iconBg : 'bg-slate-200 dark:bg-slate-700'} ${iconColor} relative overflow-hidden`}>
-                               {m.foto_url && (
-                                 <img
-                                   src={getDirectDriveLink(m.foto_url)}
-                                   alt={m.nama_lengkap}
-                                   className="w-full h-full object-cover absolute inset-0 z-10"
-                                   onError={(e) => {
-                                     e.currentTarget.style.display = 'none';
-                                   }}
-                                 />
-                               )}
-                               <Gift className={`w-4 h-4 sm:w-5 sm:h-5 ${m.foto_url ? 'absolute z-0 opacity-50' : ''}`}/>
-                             </div>
                            </div>
                            
-                           <div className="mt-auto space-y-2.5 sm:space-y-3 relative z-10">
-                              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-[13px] sm:text-sm text-slate-600 dark:text-slate-300">
-                                <span className="shrink-0 text-xs sm:text-sm">🎂</span>
-                                <span className="font-medium text-slate-700 dark:text-slate-200">{displayDate}</span> 
-                                <span className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 whitespace-nowrap">({nextAge} thn)</span>
-                              </div>
-                              <div className="pt-2.5 sm:pt-3 border-t border-slate-100 dark:border-slate-700/50 flex flex-wrap items-center gap-2 justify-between">
-                                 <span className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">Hitung Mundur:</span>
-                                 <span className={`px-2 py-1 sm:px-2.5 rounded-md text-[10px] sm:text-[11px] md:text-xs font-semibold shrink-0 ${badgeStyle}`}>
-                                   {isToday ? 'HARI INI!' : `${days} Hari Lagi`}
-                                 </span>
+                           <div className="mt-auto flex flex-col gap-3 relative z-10">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center shrink-0 ${!m.foto_url ? iconBg : 'bg-slate-200 dark:bg-slate-700'} ${iconColor} relative overflow-hidden border-2 border-white dark:border-slate-800 shadow-sm`}>
+                                  {m.foto_url && (
+                                    <img
+                                      src={getDirectDriveLink(m.foto_url)}
+                                      alt={m.nama_lengkap}
+                                      className="w-full h-full object-cover absolute inset-0 z-10"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                      }}
+                                    />
+                                  )}
+                                  <Gift className={`w-5 h-5 ${m.foto_url ? 'absolute z-0 opacity-50' : ''}`}/>
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-1.5 text-sm sm:text-base font-bold text-slate-700 dark:text-slate-200">
+                                    <span>{displayDate}</span> 
+                                  </div>
+                                  <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                                    Berusia <span className="font-bold text-indigo-600 dark:text-indigo-400">{nextAge}</span> tahun
+                                  </div>
+                                </div>
                               </div>
                            </div>
                         </div>
@@ -1235,43 +1278,46 @@ export default function Dashboard() {
                   )}
                 </div>
                 ) : (
-                  <div className="bg-white dark:bg-slate-800 border-none sm:border-solid border-slate-200 dark:border-slate-700 sm:rounded-none m-0 p-0 overflow-x-auto min-h-0 w-full rounded-none">
-                    <table className="w-full text-left border-collapse text-sm whitespace-nowrap min-w-full">
-                      <thead className="bg-slate-50 dark:bg-slate-900 border-y sm:border-t-0 border-slate-200 dark:border-slate-700">
-                        <tr>
-                          <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">Nama Jemaat</th>
-                          <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">Tanggal Lahir</th>
-                          <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">Usia Mendatang</th>
-                          <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">Hitung Mundur</th>
-                          <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {members
-                          .filter(m => birthdayStatusFilter === 'Aktif' ? !m.tanggal_keluar : birthdayStatusFilter === 'Keluar' ? !!m.tanggal_keluar : true)
-                          .map(m => ({ ...m, daysLeft: getDaysToBirthday(m.tanggal_lahir) }))
-                          .filter(m => m.daysLeft !== null)
-                          .sort((a, b) => (a.daysLeft as number) - (b.daysLeft as number))
-                          .map((m) => {
-                            const days = m.daysLeft as number;
-                            const isToday = days === 0;
-                            const isActive = !m.tanggal_keluar;
-                            const birthDateObj = new Date(m.tanggal_lahir);
-                            const displayDate = birthDateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-                            const currentAge = new Date().getFullYear() - birthDateObj.getFullYear();
-                            const nextAge = currentAge + (new Date(new Date().getFullYear(), birthDateObj.getMonth(), birthDateObj.getDate()) < new Date() ? 1 : 0);
+                  <div className="bg-white dark:bg-slate-800 m-0 sm:m-4 md:m-6 sm:rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col flex-1 min-h-0 shadow-sm relative overflow-hidden">
+                    <div className="overflow-auto flex-1 h-full">
+                      <table className="w-full text-left border-collapse text-sm whitespace-nowrap min-w-full">
+                        <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-10 shadow-sm">
+                          <tr>
+                            <th className="p-3 sm:p-4 font-semibold text-slate-600 dark:text-slate-300">Jemaat</th>
+                            <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">Tanggal Lahir</th>
+                            <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 hidden sm:table-cell">Usia Mendatang</th>
+                            <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">Hitung Mundur</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {members
+                            .filter(m => birthdayStatusFilter === 'Aktif' ? !m.tanggal_keluar : birthdayStatusFilter === 'Keluar' ? !!m.tanggal_keluar : true)
+                            .map(m => ({ ...m, daysLeft: getDaysToBirthday(m.tanggal_lahir) }))
+                            .filter(m => m.daysLeft !== null)
+                            .sort((a, b) => (a.daysLeft as number) - (b.daysLeft as number))
+                            .map((m) => {
+                              const days = m.daysLeft as number;
+                              const isToday = days === 0;
+                              const isActive = !m.tanggal_keluar;
+                              const birthDateObj = new Date(m.tanggal_lahir);
+                              const displayDate = birthDateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+                              const todayDate = new Date();
+                              todayDate.setHours(0, 0, 0, 0);
+                              const nextBirthdayThisYear = new Date(todayDate.getFullYear(), birthDateObj.getMonth(), birthDateObj.getDate());
+                              const hasPassed = nextBirthdayThisYear.getTime() < todayDate.getTime();
+                              const currentAge = todayDate.getFullYear() - birthDateObj.getFullYear();
+                              const nextAge = currentAge + (hasPassed ? 1 : 0);
 
-                            return (
-                              <tr 
-                                key={m.id} 
-                                onClick={() => canViewProfile && setViewingProfileId(m.id)}
-                                className={`border-b border-slate-100 dark:border-slate-800/50 transition-colors ${canViewProfile ? 'hover:bg-slate-50 dark:hover:bg-slate-800/80 cursor-pointer' : ''} ${isToday ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
-                              >
-                                <td className="p-3">
-                                  <div className="flex flex-col gap-0.5">
-                                    <div className="flex items-center gap-2">
-                                      {m.foto_url && (
-                                        <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 relative overflow-hidden shrink-0">
+                              return (
+                                <tr 
+                                  key={m.id} 
+                                  onClick={() => canViewProfile && setViewingProfileId(m.id)}
+                                  className={`border-b border-slate-100 dark:border-slate-800/50 transition-colors ${canViewProfile ? 'hover:bg-slate-50 dark:hover:bg-slate-800/80 cursor-pointer' : ''} ${isToday ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                                >
+                                  <td className="p-3 sm:p-4">
+                                    <div className="flex items-center gap-3">
+                                      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isToday ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 border border-blue-200 dark:border-blue-700' : 'bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-500 border border-slate-200 dark:border-slate-600'} relative overflow-hidden`}>
+                                        {m.foto_url && (
                                            <img
                                              src={getDirectDriveLink(m.foto_url)}
                                              alt={m.nama_lengkap}
@@ -1280,49 +1326,59 @@ export default function Dashboard() {
                                                e.currentTarget.style.display = 'none';
                                              }}
                                            />
-                                           <Gift className="w-4 h-4 absolute z-0 opacity-50 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-slate-400" />
+                                        )}
+                                        <Gift className={`w-5 h-5 ${m.foto_url ? 'absolute z-0 opacity-50' : ''}`} />
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span className={`font-semibold ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-slate-800 dark:text-slate-100'} break-words line-clamp-1`} title={formatNameTitleCase(m.nama_lengkap)}>
+                                            {formatNameTitleCase(m.nama_lengkap)} {isToday && '🎉'}
+                                          </span>
                                         </div>
-                                      )}
-                                      <span className={`font-semibold ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-slate-800 dark:text-slate-100'} truncate max-w-[200px] sm:max-w-xs md:max-w-sm`}>
-                                        {formatNameTitleCase(m.nama_lengkap)} {isToday && '🎂'}
-                                      </span>
-                                      {user?.username !== 'fajrur1' && m.nomor_anggota && (
-                                        <span className="text-[10px] sm:text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 whitespace-nowrap hidden sm:inline">
-                                          {m.nomor_anggota}
-                                        </span>
-                                      )}
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                          {user?.username !== 'fajrur1' && m.nomor_anggota && (
+                                            <span className="text-[10px] sm:text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 whitespace-nowrap">
+                                              {m.nomor_anggota}
+                                            </span>
+                                          )}
+                                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'}`}>
+                                            {isActive ? 'Aktif' : 'Keluar'}
+                                          </span>
+                                        </div>
+                                      </div>
                                     </div>
-                                    {user?.username !== 'fajrur1' && m.nomor_anggota && (
-                                      <span className="text-xs font-mono text-slate-500 dark:text-slate-400 sm:hidden">
-                                        {m.nomor_anggota}
+                                  </td>
+                                  <td className="p-3 text-sm font-medium text-slate-700 dark:text-slate-300">
+                                    {displayDate}
+                                    <div className="text-xs text-slate-500 dark:text-slate-400 sm:hidden mt-0.5">Berusia {nextAge} thn</div>
+                                  </td>
+                                  <td className="p-3 text-sm font-medium text-slate-700 dark:text-slate-300 hidden sm:table-cell">
+                                    <span className="font-bold text-indigo-600 dark:text-indigo-400">{nextAge}</span> Tahun
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    {isToday ? (
+                                      <span className="px-3 py-1 rounded bg-blue-600 text-white font-bold animate-pulse text-xs shadow-sm inline-block min-w-[5rem]">
+                                        HARI INI!
+                                      </span>
+                                    ) : (
+                                      <span className="px-3 py-1 rounded-md bg-slate-100 dark:bg-slate-700/50 text-slate-700 dark:text-slate-200 font-bold border border-slate-200 dark:border-slate-600 shadow-sm text-sm inline-block min-w-[5rem]">
+                                        {days} Hari
                                       </span>
                                     )}
-                                  </div>
+                                  </td>
+                                </tr>
+                              );
+                          })}
+                          {members.filter(m => m.tanggal_lahir && !isNaN(new Date(m.tanggal_lahir).getTime())).length === 0 && (
+                             <tr>
+                                <td colSpan={4} className="p-8 text-center text-slate-500 dark:text-slate-400">
+                                  Belum ada data tanggal lahir yang valid untuk ditampilkan.
                                 </td>
-                                <td className="p-3 text-slate-600 dark:text-slate-300">{displayDate}</td>
-                                <td className="p-3 text-slate-600 dark:text-slate-300">{nextAge} Tahun</td>
-                                <td className="p-3">
-                                  <span className={`px-2 py-1 rounded text-xs font-medium ${isToday ? 'bg-blue-600 text-white animate-pulse' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
-                                    {isToday ? 'HARI INI!' : `${days} Hari Lagi`}
-                                  </span>
-                                </td>
-                                <td className="p-3">
-                                  <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'}`}>
-                                    {isActive ? 'Aktif' : 'Keluar'}
-                                  </span>
-                                </td>
-                              </tr>
-                            );
-                        })}
-                        {members.filter(m => m.tanggal_lahir && !isNaN(new Date(m.tanggal_lahir).getTime())).length === 0 && (
-                           <tr>
-                              <td colSpan={5} className="p-8 text-center text-slate-500 dark:text-slate-400">
-                                Belum ada data tanggal lahir yang valid untuk ditampilkan.
-                              </td>
-                           </tr>
-                        )}
-                      </tbody>
-                    </table>
+                             </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1401,31 +1457,69 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'map' && (
-            <div className="flex-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] p-4 sm:p-6 flex flex-col min-h-0">
-              <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 mb-4 sm:mb-6 shrink-0">Pemetaan Jemaat Berdasarkan Alamat</h2>
-              <div className="flex-1 overflow-y-auto pr-2">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                  {Object.entries(
-                    members.reduce((acc, m) => {
-                      const addr = m.alamat_asal || 'Tidak Diketahui';
-                      // simple grouping by first word of address
-                      const groupName = addr.split(' ')[0] || 'Lainnya';
-                      acc[groupName] = (acc[groupName] || 0) + 1;
-                      return acc;
-                    }, {} as Record<string, number>)
-                  ).map(([group, count]) => (
-                    <div key={group} className="p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 flex justify-between items-center hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors">
-                      <div className="min-w-0 pr-3">
-                        <p className="font-semibold text-sm sm:text-base text-slate-800 dark:text-slate-100 truncate" title={group}>{group}</p>
-                        <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">Area/Wilayah</p>
-                      </div>
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 shrink-0 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 flex items-center justify-center font-bold text-xs sm:text-sm">
-                        {count}
-                      </div>
+            <div className="flex-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] p-4 sm:p-6 flex flex-col min-h-0 relative overflow-hidden">
+               {selectedMapArea ? (
+                 <div className="flex flex-col h-full absolute inset-0 bg-white dark:bg-slate-800 p-4 sm:p-6 z-10 animate-in fade-in zoom-in-95 duration-200">
+                   <div className="flex items-center gap-3 mb-4 sm:mb-6 shrink-0">
+                     <button onClick={() => setSelectedMapArea(null)} className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg transition-colors focus:outline-none">
+                       <ArrowLeft className="w-5 h-5 text-slate-700 dark:text-slate-200" />
+                     </button>
+                     <div>
+                       <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100">Jemaat Area: {selectedMapArea}</h2>
+                       <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Total {members.filter(m => (m.alamat_asal || 'Lainnya').split(' ')[0] === selectedMapArea).length} Anggota</p>
+                     </div>
+                   </div>
+                   <div className="flex-1 overflow-y-auto pr-2">
+                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                        {members.filter(m => (m.alamat_asal || 'Lainnya').split(' ')[0] === selectedMapArea).map(m => (
+                          <div 
+                            key={m.id} 
+                            onClick={() => { if(canViewProfile) { setViewingProfileId(m.id); } }} 
+                            className={`flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl ${canViewProfile ? 'hover:shadow-md cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 transition-all' : ''}`}
+                          >
+                             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-slate-200 dark:bg-slate-700 flex-shrink-0 flex items-center justify-center relative overflow-hidden font-bold">
+                               {m.foto_url ? (
+                                  <img src={getDirectDriveLink(m.foto_url)} alt={m.nama_lengkap} className="w-full h-full object-cover" crossOrigin="anonymous" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                               ) : (
+                                  <span className="text-slate-500 dark:text-slate-400">{m.nama_lengkap.charAt(0).toUpperCase()}</span>
+                               )}
+                             </div>
+                             <div className="min-w-0">
+                               <p className="font-bold text-slate-800 dark:text-slate-100 truncate text-sm">{formatNameTitleCase(m.nama_lengkap)}</p>
+                               <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">{m.alamat_asal || 'Lainnya'}</p>
+                             </div>
+                          </div>
+                        ))}
+                     </div>
+                   </div>
+                 </div>
+               ) : (
+                 <>
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 mb-4 sm:mb-6 shrink-0">Pemetaan Jemaat Berdasarkan Alamat</h2>
+                  <div className="flex-1 overflow-y-auto pr-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                      {Object.entries(
+                        members.reduce((acc, m) => {
+                          const addr = m.alamat_asal || 'Lainnya';
+                          const groupName = addr.split(' ')[0] || 'Lainnya';
+                          acc[groupName] = (acc[groupName] || 0) + 1;
+                          return acc;
+                        }, {} as Record<string, number>)
+                      ).map(([group, count]) => (
+                        <div key={group} onClick={() => setSelectedMapArea(group)} className="p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 flex justify-between items-center hover:bg-slate-100 dark:hover:bg-slate-700/50 hover:border-blue-300 dark:hover:border-blue-700 transition-colors cursor-pointer group">
+                          <div className="min-w-0 pr-3">
+                            <p className="font-bold text-sm sm:text-base text-slate-800 dark:text-slate-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" title={group}>{group}</p>
+                            <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">Area/Wilayah</p>
+                          </div>
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 shrink-0 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 flex items-center justify-center font-bold text-xs sm:text-sm group-hover:scale-110 transition-transform">
+                            {count}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
+                 </>
+               )}
             </div>
           )}
 
@@ -1439,13 +1533,15 @@ export default function Dashboard() {
                 
                 <div className="space-y-4">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-700 pb-2">Informasi Akun</h3>
-                  <div className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <div>
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div className="min-w-0 flex-1 pr-4">
                       <p className="font-semibold text-slate-800 dark:text-slate-100">Nama Pengguna</p>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">{user?.username}</p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 truncate" title={user?.username === 'anabk' ? 'Dr. Ana Budi Kristiani, S.Sn., M.M' : user?.username}>
+                        {user?.username === 'anabk' ? 'Dr. Ana Budi Kristiani, S.Sn., M.M' : user?.username}
+                      </p>
                     </div>
-                    <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 text-xs font-bold rounded-full">
-                      {user?.username === 'fajrur' ? 'Pemilik Utama' : 'Administrator'}
+                    <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 text-xs font-bold rounded-full w-max shrink-0">
+                      {user?.username === 'fajrur' ? 'Pemilik Utama' : user?.username === 'anabk' ? 'Ketua Jemaat' : 'Administrator'}
                     </span>
                   </div>
                 </div>
@@ -1515,7 +1611,7 @@ export default function Dashboard() {
                     ) : (
                       <>
                         <div className="mb-2 flex justify-between text-sm font-medium text-slate-700 dark:text-slate-300">
-                          <span>{((dbStats.membersCount + dbStats.reportsCount) || 0).toLocaleString()} Indeks</span>
+                          <span>{((dbStats.membersCount + dbStats.reportsCount) || 0).toLocaleString()} Indeks <span className="text-xs text-slate-500 ml-1">({(((dbStats.membersCount + dbStats.reportsCount) / 50000) * 100).toFixed(2)}%)</span></span>
                           <span>Batas Aman: 50.000</span>
                         </div>
                         <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5 mb-4 overflow-hidden flex">
