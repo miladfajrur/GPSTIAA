@@ -3,7 +3,7 @@ import { collection, onSnapshot, query, setDoc, doc, deleteDoc, serverTimestamp,
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import { ArrowLeft, Download, Plus, Search, LogOut, Edit2, Trash2, Filter, Users, PieChart as PieChartIcon, MapPin, Settings, Upload, Menu, UserCheck, CheckCircle, AlertCircle, Info, X, ChevronDown, MoreVertical, Gift, Bell, Eye, TableProperties, LayoutGrid, List, Sun, Moon } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
@@ -415,7 +415,7 @@ export default function Dashboard() {
       m.tanggal_keluar || "-"
     ]);
 
-    (doc as any).autoTable({
+    autoTable(doc, {
       head: [tableColumns],
       body: tableRows,
       startY: 95,
