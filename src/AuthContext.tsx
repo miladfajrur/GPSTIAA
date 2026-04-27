@@ -12,16 +12,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
 
-  useEffect(() => {
-    const storedUser = sessionStorage.getItem("gpstiaa_user");
-    if (storedUser) {
-      setUser({ username: storedUser });
-    }
-  }, []);
-
   const login = useCallback((username: string) => {
     setUser({ username });
-    sessionStorage.setItem("gpstiaa_user", username);
   }, []);
 
   const logout = useCallback(() => {
@@ -31,7 +23,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       return null;
     });
-    sessionStorage.removeItem("gpstiaa_user");
   }, []);
 
   // Auto logout setelah 15 menit tanpa aktivitas
@@ -39,9 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let timeoutId: ReturnType<typeof setTimeout>;
 
     const handleInactivityLogout = () => {
-      if (sessionStorage.getItem("gpstiaa_user")) {
-        logout();
-      }
+      logout();
     };
 
     const resetTimer = () => {

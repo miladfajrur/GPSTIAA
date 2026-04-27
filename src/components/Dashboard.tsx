@@ -49,14 +49,9 @@ export default function Dashboard() {
   const [isBulkEntryOpen, setIsBulkEntryOpen] = useState(false);
 
   const [activeTab, setActiveTab] = useState(() => {
-    return user?.username === 'fajrur1' ? 'birthdays' : 'members';
+    return user?.username === 'BEM' ? 'birthdays' : 'members';
   });
-  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth >= 768;
-    }
-    return true;
-  });
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [birthdayView, setBirthdayView] = useState<'grid' | 'list'>('grid');
   const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
   const [selectedMapArea, setSelectedMapArea] = useState<string | null>(null);
@@ -83,7 +78,7 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [genderFilter, setGenderFilter] = useState("");
   const [baptisFilter, setBaptisFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState(""); // Default to "Semua Status"
+  const [statusFilter, setStatusFilter] = useState("Aktif"); // Default to "Aktif"
   const [birthdayStatusFilter, setBirthdayStatusFilter] = useState("Aktif"); // Default to "Aktif" for Birthdays
   const [sortBy, setSortBy] = useState("nama_asc");
   const [currentPage, setCurrentPage] = useState(1);
@@ -546,20 +541,18 @@ export default function Dashboard() {
   }, [searchTerm, genderFilter, baptisFilter, statusFilter, sortBy]);
 
   useEffect(() => {
-    if (user?.username === 'fajrur1') {
+    if (user?.username === 'BEM') {
       setActiveTab('birthdays');
     }
   }, [user]);
 
   const handleTabClick = (tab: string) => {
     setActiveTab(tab);
-    if (window.innerWidth < 768) {
-      setIsSidebarOpen(false);
-    }
+    setIsSidebarOpen(false); // Automatically close panel on all screens when an option is selected
   };
 
   const renderNavLinks = () => {
-    if (user?.username === 'fajrur1') {
+    if (user?.username === 'BEM') {
       return (
         <button 
           onClick={() => handleTabClick("birthdays")}
@@ -658,11 +651,11 @@ export default function Dashboard() {
                   {user?.username === 'anabk' ? 'A' : (user?.username?.[0] || 'U')}
                 </div>
                 <div className="truncate min-w-0 flex-1">
-                  <p className="text-sm font-medium truncate" title={user?.username === 'anabk' ? 'Dr. Ana Budi Kristiani, S.Sn., M.M' : user?.username}>
-                    {user?.username === 'anabk' ? 'Dr. Ana Budi Kristiani, S.Sn., M.M' : user?.username}
+                  <p className="text-sm font-medium truncate" title={user?.username === 'anabk' ? 'Dr. Ana Budi Kristiani, S.Sn., M.M' : (user?.username === 'fajrur' ? 'Mochamad Milad Fajrur Rosyid' : user?.username)}>
+                    {user?.username === 'anabk' ? 'Dr. Ana Budi Kristiani, S.Sn., M.M' : (user?.username === 'fajrur' ? 'Mochamad Milad Fajrur Rosyid' : user?.username)}
                   </p>
                   <p className="text-xs opacity-50 truncate">
-                    {user?.username === 'fajrur' ? 'Pemilik Utama' : user?.username === 'fajrur1' ? 'Pelihat Ulang Tahun' : user?.username === 'anabk' ? 'Ketua Jemaat' : 'Administrator'}
+                    {user?.username === 'fajrur' ? 'Pemilik Website' : user?.username === 'BEM' ? 'Pelihat Ulang Tahun' : user?.username === 'anabk' ? 'Ketua Jemaat' : 'Administrator'}
                   </p>
                 </div>
               </div>
@@ -758,7 +751,7 @@ export default function Dashboard() {
                 className="hidden"
               />
               
-              {user?.username !== 'fajrur1' && (
+              {user?.username !== 'BEM' && (
                 <div className="relative group">
                   <button
                     className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 focus:outline-none shadow-sm"
@@ -912,8 +905,8 @@ export default function Dashboard() {
                 
                 <div className="overflow-auto flex-1 w-full relative">
                   <table className="w-full text-xs text-left border-collapse">
-                    <thead className="sticky top-0 bg-white dark:bg-slate-900 shadow-sm z-20 border-b border-slate-200 dark:border-slate-700">
-                      <tr className="text-slate-500 dark:text-slate-400 uppercase font-bold">
+                    <thead className="sticky top-0 bg-white dark:bg-slate-900 shadow-sm z-30 border-b border-slate-200 dark:border-slate-700">
+                      <tr className="text-slate-500 dark:text-slate-400 uppercase font-bold bg-white dark:bg-slate-900">
                         <th className="p-3">#</th>
                         <th className="p-3">No. Anggota</th>
                         <th className="p-3">Nama Lengkap</th>
@@ -1013,7 +1006,7 @@ export default function Dashboard() {
                                 ) : '-'}
                               </td>
                               <td className="p-3 text-right">
-                                {user?.username !== 'fajrur1' ? (
+                                {user?.username !== 'BEM' ? (
                                   <div className="flex justify-end gap-2">
                                     <button
                                       onClick={() => {
@@ -1233,7 +1226,7 @@ export default function Dashboard() {
                                   <h3 className="font-bold text-slate-800 dark:text-slate-100 text-[14px] sm:text-[15px] md:text-base leading-snug line-clamp-2 break-words" title={formatNameTitleCase(m.nama_lengkap)}>
                                     {formatNameTitleCase(m.nama_lengkap)}
                                   </h3>
-                                  {user?.username !== 'fajrur1' && m.nomor_anggota && (
+                                  {user?.username !== 'BEM' && m.nomor_anggota && (
                                     <span className="text-[10px] sm:text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 whitespace-nowrap self-start mt-0.5">
                                       {m.nomor_anggota}
                                     </span>
@@ -1254,7 +1247,7 @@ export default function Dashboard() {
                                     <img
                                       src={getDirectDriveLink(m.foto_url)}
                                       alt={m.nama_lengkap}
-                                      className="w-full h-full object-cover absolute inset-0 z-10"
+                                      className="w-full h-full object-cover absolute inset-0"
                                       onError={(e) => {
                                         e.currentTarget.style.display = 'none';
                                       }}
@@ -1287,12 +1280,12 @@ export default function Dashboard() {
                   <div className="bg-white dark:bg-slate-800 m-0 sm:m-4 md:m-6 sm:rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col flex-1 min-h-0 shadow-sm relative overflow-hidden">
                     <div className="overflow-auto flex-1 h-full">
                       <table className="w-full text-left border-collapse text-sm whitespace-nowrap min-w-full">
-                        <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-20 shadow-sm">
+                        <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30 shadow-sm">
                           <tr>
-                            <th className="p-3 sm:p-4 font-semibold text-slate-600 dark:text-slate-300">Jemaat</th>
-                            <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">Tanggal Lahir</th>
-                            <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 hidden sm:table-cell">Usia Mendatang</th>
-                            <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center">Hitung Mundur</th>
+                            <th className="p-3 sm:p-4 font-semibold text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900">Jemaat</th>
+                            <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900">Tanggal Lahir</th>
+                            <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 hidden sm:table-cell bg-slate-50 dark:bg-slate-900">Usia Mendatang</th>
+                            <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center bg-slate-50 dark:bg-slate-900">Hitung Mundur</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1327,7 +1320,7 @@ export default function Dashboard() {
                                            <img
                                              src={getDirectDriveLink(m.foto_url)}
                                              alt={m.nama_lengkap}
-                                             className="w-full h-full object-cover absolute inset-0 z-10"
+                                             className="w-full h-full object-cover absolute inset-0"
                                              onError={(e) => {
                                                e.currentTarget.style.display = 'none';
                                              }}
@@ -1342,7 +1335,7 @@ export default function Dashboard() {
                                           </span>
                                         </div>
                                         <div className="flex items-center gap-2 mt-0.5">
-                                          {user?.username !== 'fajrur1' && m.nomor_anggota && (
+                                          {user?.username !== 'BEM' && m.nomor_anggota && (
                                             <span className="text-[10px] sm:text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 whitespace-nowrap">
                                               {m.nomor_anggota}
                                             </span>
@@ -1426,14 +1419,19 @@ export default function Dashboard() {
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={[
                         { name: 'Belum', value: members.filter(m => !m.jenis_baptis || m.jenis_baptis === '').length },
-                        { name: 'Kecil', value: members.filter(m => m.jenis_baptis === 'Baptis Kecil').length },
-                        { name: 'Dewasa', value: members.filter(m => m.jenis_baptis === 'Baptis Dewasa').length },
-                        { name: 'SIDI', value: members.filter(m => m.jenis_baptis === 'SIDI').length }
+                        { name: 'Baptis Kecil', value: members.filter(m => m.jenis_baptis === 'Baptis Kecil').length },
+                        { name: 'SIDI', value: members.filter(m => m.jenis_baptis === 'SIDI').length },
+                        { name: 'Baptis Dewasa', value: members.filter(m => m.jenis_baptis === 'Baptis Dewasa').length }
                       ]}>
-                        <XAxis dataKey="name" tick={{fontSize: 10, fill: isDarkMode ? '#94a3b8' : '#64748b'}} interval={0} />
+                        <XAxis dataKey="name" tick={{fontSize: 9, fill: isDarkMode ? '#94a3b8' : '#64748b'}} interval={0} />
                         <YAxis tick={{fontSize: 10, fill: isDarkMode ? '#94a3b8' : '#64748b'}} width={35} />
                         <Tooltip cursor={{fill: isDarkMode ? '#334155' : '#f1f5f9'}} contentStyle={{ backgroundColor: isDarkMode ? '#1e293b' : '#fff', borderColor: isDarkMode ? '#334155' : '#e2e8f0', color: isDarkMode ? '#f8fafc' : '#1e293b' }} />
-                        <Bar dataKey="value" fill="#F59E0B" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                          <Cell fill="#94A3B8" />
+                          <Cell fill="#60A5FA" />
+                          <Cell fill="#8B5CF6" />
+                          <Cell fill="#F59E0B" />
+                        </Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -1744,7 +1742,7 @@ export default function Dashboard() {
       )}
 
       {/* Floating Action Button for Add Data */}
-      {activeTab === 'members' && user?.username !== 'fajrur1' && (
+      {activeTab === 'members' && user?.username !== 'BEM' && (
         <button
           onClick={() => {
             setSelectedMember(undefined);
