@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { collection, onSnapshot, query, setDoc, doc, deleteDoc, serverTimestamp, orderBy, where, getCountFromServer } from "firebase/firestore";
 import Papa from "papaparse";
-import { ArrowLeft, Download, Plus, Search, LogOut, Edit2, Trash2, Filter, Users, PieChart as PieChartIcon, MapPin, Settings, Upload, Menu, UserCheck, CheckCircle, AlertCircle, Info, X, ChevronDown, MoreVertical, Gift, Bell, Eye, TableProperties, LayoutGrid, List } from "lucide-react";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+import { ArrowLeft, Download, Plus, Search, LogOut, Edit2, Trash2, Filter, Users, PieChart as PieChartIcon, MapPin, Settings, Upload, Menu, UserCheck, CheckCircle, AlertCircle, Info, X, ChevronDown, MoreVertical, Gift, Bell, Eye, TableProperties, LayoutGrid, List, Sun, Moon } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 import { db } from "../lib/firebase";
@@ -80,6 +83,7 @@ export default function Dashboard() {
   const [baptisFilter, setBaptisFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("Aktif"); // Default to "Aktif"
   const [birthdayStatusFilter, setBirthdayStatusFilter] = useState("Aktif"); // Default to "Aktif" for Birthdays
+  const [birthdaySubTab, setBirthdaySubTab] = useState<'terdekat' | 'bulanIni'>('terdekat');
   const [sortBy, setSortBy] = useState("nama_asc");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -122,6 +126,7 @@ export default function Dashboard() {
       if (getDaysToBirthday(m.tanggal_lahir) === 0 && (!m.tanggal_keluar)) {
         notifs.push({
           id: `bday-${m.id}`,
+          memberId: m.id,
           type: 'birthday',
           title: 'Ulang Tahun Hari Ini!',
           message: `${formatNameTitleCase(m.nama_lengkap)} berulang tahun hari ini.🎉`,
@@ -130,24 +135,36 @@ export default function Dashboard() {
       }
     });
 
-    // 2. Recent additions (top 5)
+    // 2. Recent changes (top 5)
     members
       .slice()
-      .filter(m => m.createdAt)
+      .filter(m => m.createdAt || m.updatedAt)
       .sort((a, b) => {
-        const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0);
-        const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0);
-        return timeB - timeA;
+        const getTime = (m: Member) => {
+          if (m.updatedAt) {
+            return m.updatedAt?.toMillis ? m.updatedAt.toMillis() : (m.updatedAt?.seconds ? m.updatedAt.seconds * 1000 : 0);
+          }
+          return m.createdAt?.toMillis ? m.createdAt.toMillis() : (m.createdAt?.seconds ? m.createdAt.seconds * 1000 : 0);
+        };
+        return getTime(b) - getTime(a);
       })
       .slice(0, 5)
       .forEach(m => {
-        const time = m.createdAt?.toMillis ? m.createdAt.toMillis() : (m.createdAt?.seconds ? m.createdAt.seconds * 1000 : 0);
+        const crTime = m.createdAt?.toMillis ? m.createdAt.toMillis() : (m.createdAt?.seconds ? m.createdAt.seconds * 1000 : 0);
+        const upTime = m.updatedAt?.toMillis ? m.updatedAt.toMillis() : (m.updatedAt?.seconds ? m.updatedAt.seconds * 1000 : 0);
+        const isUpdate = upTime > crTime + 1000; // if updated at least 1s after creation
+        
+        const time = isUpdate ? upTime : crTime;
+        
         if (time > 0) {
           notifs.push({
-            id: `new-${m.id}`,
+            id: `change-${m.id}-${time}`,
+            memberId: m.id,
             type: 'new_data',
-            title: 'Data Berhasil Diinput',
-            message: `Data jemaat ${formatNameTitleCase(m.nama_lengkap)} telah ditambahkan ke sistem.`,
+            title: isUpdate ? 'Data Diperbarui' : 'Data Berhasil Diinput',
+            message: isUpdate 
+              ? `Data jemaat ${formatNameTitleCase(m.nama_lengkap)} telah diperbarui.` 
+              : `Data jemaat ${formatNameTitleCase(m.nama_lengkap)} telah ditambahkan ke sistem.`,
             dateRef: time
           });
         }
@@ -323,8 +340,8 @@ export default function Dashboard() {
     }
   };
 
-  const handleExportCSV = () => {
-    const csvData = members.map((m, index) => ({
+  const handleExportExcel = () => {
+    const excelData = members.map((m, index) => ({
       "No": index + 1,
       "Nomor Anggota": m.nomor_anggota,
       "Nama Lengkap": m.nama_lengkap,
@@ -340,16 +357,46 @@ export default function Dashboard() {
       "Link Foto": m.foto_url
     }));
 
-    const csv = Papa.unparse(csvData);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Data_Jemaat");
+    XLSX.writeFile(workbook, "Buku_Induk_GPSTIAA.xlsx");
+  };
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF("l", "pt", "a4"); // Landscape
     
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'Buku_Induk_GPSTIAA.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Titling
+    doc.setFontSize(16);
+    doc.text("Laporan Data Jemaat GPSTIAA", 40, 40);
+    
+    doc.setFontSize(10);
+    doc.text(`Total Jemaat: ${members.length}  |  Tanggal Unduh: ${new Date().toLocaleDateString('id-ID')}`, 40, 60);
+
+    const tableColumns = ["No", "No. Anggota", "Nama Lengkap", "L/P", "Tempat, Tanggal Lahir", "No. Telp", "Alamat Asal", "Jenis Baptis", "Tgl Masuk", "Tgl Keluar"];
+    const tableRows = members.map((m, index) => [
+      index + 1,
+      m.nomor_anggota || "-",
+      m.nama_lengkap || "-",
+      m.jenis_kelamin === "Pria" ? "L" : m.jenis_kelamin === "Wanita" ? "P" : "-",
+      `${m.tempat_lahir || "-"}, ${m.tanggal_lahir || "-"}`,
+      m.no_telp || "-",
+      m.alamat_asal || "-",
+      m.jenis_baptis || "-",
+      m.tanggal_masuk || "-",
+      m.tanggal_keluar || "-"
+    ]);
+
+    (doc as any).autoTable({
+      head: [tableColumns],
+      body: tableRows,
+      startY: 80,
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [30, 58, 138], textColor: 255 }, // blue-900 equivalent
+      theme: 'grid'
+    });
+
+    doc.save("Laporan_Jemaat_GPSTIAA.pdf");
   };
 
   const handleDownloadTemplate = () => {
@@ -368,16 +415,10 @@ export default function Dashboard() {
       "Link Foto": ""
     }];
     
-    const csv = Papa.unparse(templateData);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'Template_Impor_Jemaat.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+    XLSX.writeFile(workbook, "Template_Impor_Jemaat.xlsx");
   };
 
   const handleImportCSV = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -540,6 +581,32 @@ export default function Dashboard() {
     setCurrentPage(1);
   }, [searchTerm, genderFilter, baptisFilter, statusFilter, sortBy]);
 
+  const birthdayMembers = useMemo(() => {
+    return members
+      .filter(m => birthdayStatusFilter === 'Aktif' ? !m.tanggal_keluar : birthdayStatusFilter === 'Keluar' ? !!m.tanggal_keluar : true)
+      .filter(m => {
+        if (birthdaySubTab === 'bulanIni') {
+          if (!m.tanggal_lahir) return false;
+          const splitDate = m.tanggal_lahir.split('-');
+          if (splitDate.length !== 3) return false;
+          const bornMonth = parseInt(splitDate[1], 10);
+          const currMonth = new Date().getMonth() + 1;
+          return bornMonth === currMonth;
+        }
+        return true;
+      })
+      .map(m => ({ ...m, daysLeft: getDaysToBirthday(m.tanggal_lahir) }))
+      .filter(m => m.daysLeft !== null)
+      .sort((a, b) => {
+        if (birthdaySubTab === 'bulanIni') {
+          const aDay = parseInt(a.tanggal_lahir.split('-')[2] || '0', 10);
+          const bDay = parseInt(b.tanggal_lahir.split('-')[2] || '0', 10);
+          return aDay - bDay;
+        }
+        return (a.daysLeft as number) - (b.daysLeft as number);
+      });
+  }, [members, birthdayStatusFilter, birthdaySubTab]);
+
   useEffect(() => {
     if (user?.username === 'BEM') {
       setActiveTab('birthdays');
@@ -647,15 +714,17 @@ export default function Dashboard() {
           <div className="mt-auto pt-6 border-t border-white border-opacity-10 flex flex-col gap-4">
             <div className="flex items-center justify-between gap-2 overflow-hidden">
               <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="w-10 h-10 rounded-full bg-blue-700 flex items-center justify-center font-bold uppercase shrink-0">
-                  {user?.username === 'anabk' ? 'A' : (user?.username?.[0] || 'U')}
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold uppercase shrink-0 overflow-hidden ${user?.username === 'fajrur' ? 'bg-transparent' : 'bg-blue-700'}`}>
+                  {user?.username === 'fajrur' ? (
+                    <img src={getDirectDriveLink("https://drive.google.com/open?id=1c0e8axpg16CCTf-3dDUbcmnGoNeMqUmv")} alt="Milad Fajrur" className="w-full h-full object-cover" />
+                  ) : user?.username === 'anabk' ? 'A' : (user?.username?.[0] || 'U')}
                 </div>
-                <div className="truncate min-w-0 flex-1">
-                  <p className="text-sm font-medium truncate" title={user?.username === 'anabk' ? 'Dr. Ana Budi Kristiani, S.Sn., M.M' : (user?.username === 'fajrur' ? 'Mochamad Milad Fajrur Rosyid' : user?.username)}>
-                    {user?.username === 'anabk' ? 'Dr. Ana Budi Kristiani, S.Sn., M.M' : (user?.username === 'fajrur' ? 'Mochamad Milad Fajrur Rosyid' : user?.username)}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium line-clamp-2 break-words" title={user?.username === 'anabk' ? 'Dr. Ana Budi Kristiani, S.Sn., M.M' : (user?.username === 'fajrur' ? 'Milad Fajrur' : user?.username)}>
+                    {user?.username === 'anabk' ? 'Dr. Ana Budi Kristiani, S.Sn., M.M' : (user?.username === 'fajrur' ? 'Milad Fajrur' : user?.username)}
                   </p>
-                  <p className="text-xs opacity-50 truncate">
-                    {user?.username === 'fajrur' ? 'Pemilik Website' : user?.username === 'BEM' ? 'Pelihat Ulang Tahun' : user?.username === 'anabk' ? 'Ketua Jemaat' : 'Administrator'}
+                  <p className="text-xs opacity-50 line-clamp-2 break-words mt-0.5">
+                    {user?.username === 'fajrur' ? 'Mahasiswa Teologi' : user?.username === 'BEM' ? 'Badan Exclusive Mahasiswa' : user?.username === 'anabk' ? 'Ketua Jemaat' : 'Administrator'}
                   </p>
                 </div>
               </div>
@@ -696,6 +765,15 @@ export default function Dashboard() {
           ) : (
             <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto justify-end">
               
+              {/* Dark Mode Toggle */}
+              <button 
+                onClick={toggleDarkMode}
+                className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 p-2 md:px-3 md:py-2 rounded-lg transition-all flex items-center justify-center focus:outline-none shadow-sm relative"
+                title={isDarkMode ? "Ganti ke Mode Terang" : "Ganti ke Mode Gelap"}
+              >
+                {isDarkMode ? <Sun className="h-4 w-4 md:h-4 md:w-4 text-amber-500" /> : <Moon className="h-4 w-4 md:h-4 md:w-4" />}
+              </button>
+
               {/* Notification Bell */}
               <div className="relative notification-container">
                 <button
@@ -722,7 +800,25 @@ export default function Dashboard() {
                     ) : (
                       <div className="flex flex-col">
                         {notifications.map((notif, idx) => (
-                          <div key={notif.id} className={`p-3 border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${idx === notifications.length - 1 ? 'border-none' : ''}`}>
+                          <div 
+                            key={notif.id} 
+                            onClick={() => {
+                              setIsNotificationOpen(false);
+                              const memberToEdit = members.find(m => m.id === notif.memberId);
+                              if (memberToEdit && user?.username !== 'BEM') {
+                                setSelectedMember(memberToEdit);
+                                setIsModalOpen(true);
+                              } else if (notif.type === 'birthday') {
+                                setActiveTab('birthdays');
+                                setBirthdaySubTab('terdekat'); // Tampilkan yang terdekat
+                              } else {
+                                setActiveTab('members');
+                                setSortBy('created_at_desc'); // Urutkan terbaru
+                                setSearchTerm(''); // Bersihkan pencarian jika ada
+                              }
+                            }}
+                            className={`p-3 border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer ${idx === notifications.length - 1 ? 'border-none' : ''}`}
+                          >
                             <div className="flex gap-3 items-start">
                               <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${notif.type === 'birthday' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
                                 {notif.type === 'birthday' ? <Gift className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
@@ -765,7 +861,7 @@ export default function Dashboard() {
                         onClick={handleDownloadTemplate}
                         className="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-md transition-colors flex items-center gap-2"
                       >
-                        <Download className="h-3.5 w-3.5" /> Template CSV
+                        <Download className="h-3.5 w-3.5" /> Template Excel
                       </button>
                       <button
                         onClick={() => fileInputRef.current?.click()}
@@ -778,7 +874,7 @@ export default function Dashboard() {
                           </>
                         ) : (
                           <>
-                            <Upload className="h-3.5 w-3.5" /> Impor dari CSV
+                            <Upload className="h-3.5 w-3.5" /> Impor (CSV)
                           </>
                         )}
                       </button>
@@ -790,10 +886,16 @@ export default function Dashboard() {
                       </button>
                       <div className="h-px bg-slate-100 dark:bg-slate-700/50 my-1"></div>
                       <button
-                        onClick={handleExportCSV}
+                        onClick={handleExportExcel}
                         className="w-full text-left px-3 py-2 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors flex items-center gap-2"
                       >
-                        <span className="text-sm">📥</span> Unduh format Excel
+                        <span className="text-sm">📥</span> Unduh Excel
+                      </button>
+                      <button
+                        onClick={handleExportPDF}
+                        className="w-full text-left px-3 py-2 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors flex items-center gap-2"
+                      >
+                        <span className="text-sm">📄</span> Unduh PDF
                       </button>
                     </div>
                   </div>
@@ -1148,16 +1250,30 @@ export default function Dashboard() {
                     </select>
                   </div>
                 </div>
+
+                {/* Sub-tabs untuk Bulan Ini vs Terdekat */}
+                <div className="flex px-4 md:px-6 pt-2 h-10 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                  <div className="flex space-x-4 h-full">
+                    <button
+                      onClick={() => setBirthdaySubTab('terdekat')}
+                      className={`h-full px-2 text-sm font-medium border-b-2 transition-colors ${birthdaySubTab === 'terdekat' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'}`}
+                    >
+                      Ulang Tahun Terdekat
+                    </button>
+                    <button
+                      onClick={() => setBirthdaySubTab('bulanIni')}
+                      className={`h-full px-2 text-sm font-medium border-b-2 transition-colors ${birthdaySubTab === 'bulanIni' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'}`}
+                    >
+                      Pada Bulan Ini
+                    </button>
+                  </div>
+                </div>
               </div>
               
               <div className={`flex-1 w-full bg-slate-50/50 dark:bg-slate-900/50 flex flex-col min-h-0 ${birthdayView === 'grid' ? 'p-3 sm:p-4 md:p-6 overflow-auto' : 'overflow-hidden'}`}>
                 {birthdayView === 'grid' ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5">
-                    {members
-                      .filter(m => birthdayStatusFilter === 'Aktif' ? !m.tanggal_keluar : birthdayStatusFilter === 'Keluar' ? !!m.tanggal_keluar : true)
-                      .map(m => ({ ...m, daysLeft: getDaysToBirthday(m.tanggal_lahir) }))
-                      .filter(m => m.daysLeft !== null)
-                      .sort((a, b) => (a.daysLeft as number) - (b.daysLeft as number))
+                    {birthdayMembers
                       .map((m) => {
                         const days = m.daysLeft as number;
                       const isToday = days === 0;
@@ -1253,7 +1369,7 @@ export default function Dashboard() {
                                       }}
                                     />
                                   )}
-                                  <Gift className={`w-5 h-5 ${m.foto_url ? 'absolute z-0 opacity-50' : ''}`}/>
+                                  {!m.foto_url && <Gift className="w-5 h-5" />}
                                 </div>
                                 <div>
                                   <div className="flex items-center gap-1.5 text-sm sm:text-base font-bold text-slate-700 dark:text-slate-200">
@@ -1269,10 +1385,10 @@ export default function Dashboard() {
                       );
                   })}
                   
-                  {members.filter(m => m.tanggal_lahir && !isNaN(new Date(m.tanggal_lahir).getTime())).length === 0 && (
+                  {birthdayMembers.length === 0 && (
                      <div className="col-span-full py-12 text-center text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
                        <Gift className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
-                       <p>Belum ada data tanggal lahir yang valid untuk ditampilkan.</p>
+                       <p>{birthdaySubTab === 'bulanIni' ? 'Tidak ada jemaat yang berulang tahun pada bulan ini.' : 'Belum ada data tanggal lahir yang valid untuk ditampilkan.'}</p>
                      </div>
                   )}
                 </div>
@@ -1289,11 +1405,7 @@ export default function Dashboard() {
                           </tr>
                         </thead>
                         <tbody>
-                          {members
-                            .filter(m => birthdayStatusFilter === 'Aktif' ? !m.tanggal_keluar : birthdayStatusFilter === 'Keluar' ? !!m.tanggal_keluar : true)
-                            .map(m => ({ ...m, daysLeft: getDaysToBirthday(m.tanggal_lahir) }))
-                            .filter(m => m.daysLeft !== null)
-                            .sort((a, b) => (a.daysLeft as number) - (b.daysLeft as number))
+                          {birthdayMembers
                             .map((m) => {
                               const days = m.daysLeft as number;
                               const isToday = days === 0;
@@ -1326,7 +1438,7 @@ export default function Dashboard() {
                                              }}
                                            />
                                         )}
-                                        <Gift className={`w-5 h-5 ${m.foto_url ? 'absolute z-0 opacity-50' : ''}`} />
+                                        {!m.foto_url && <Gift className="w-5 h-5" />}
                                       </div>
                                       <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-1.5 flex-wrap">
@@ -1368,10 +1480,10 @@ export default function Dashboard() {
                                 </tr>
                               );
                           })}
-                          {members.filter(m => m.tanggal_lahir && !isNaN(new Date(m.tanggal_lahir).getTime())).length === 0 && (
+                          {birthdayMembers.length === 0 && (
                              <tr>
                                 <td colSpan={4} className="p-8 text-center text-slate-500 dark:text-slate-400">
-                                  Belum ada data tanggal lahir yang valid untuk ditampilkan.
+                                  {birthdaySubTab === 'bulanIni' ? 'Tidak ada jemaat yang berulang tahun pada bulan ini.' : 'Belum ada data tanggal lahir yang valid untuk ditampilkan.'}
                                 </td>
                              </tr>
                           )}
@@ -1399,6 +1511,7 @@ export default function Dashboard() {
                             { name: 'Wanita', value: members.filter(m => m.jenis_kelamin === 'Wanita').length },
                           ]}
                           cx="50%" cy="50%" innerRadius={isSidebarOpen && window.innerWidth < 1024 ? 40 : 60} outerRadius={isSidebarOpen && window.innerWidth < 1024 ? 60 : 80} paddingAngle={5} dataKey="value"
+                          isAnimationActive={true} animationDuration={1500} animationEasing="ease-out"
                         >
                           <Cell fill="#1E3A8A" />
                           <Cell fill="#10B981" />
@@ -1426,7 +1539,7 @@ export default function Dashboard() {
                         <XAxis dataKey="name" tick={{fontSize: 9, fill: isDarkMode ? '#94a3b8' : '#64748b'}} interval={0} />
                         <YAxis tick={{fontSize: 10, fill: isDarkMode ? '#94a3b8' : '#64748b'}} width={35} />
                         <Tooltip cursor={{fill: isDarkMode ? '#334155' : '#f1f5f9'}} contentStyle={{ backgroundColor: isDarkMode ? '#1e293b' : '#fff', borderColor: isDarkMode ? '#334155' : '#e2e8f0', color: isDarkMode ? '#f8fafc' : '#1e293b' }} />
-                        <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                        <Bar dataKey="value" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={1500} animationEasing="ease-out">
                           <Cell fill="#94A3B8" />
                           <Cell fill="#60A5FA" />
                           <Cell fill="#8B5CF6" />
@@ -1540,29 +1653,13 @@ export default function Dashboard() {
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
                     <div className="min-w-0 flex-1 pr-4">
                       <p className="font-semibold text-slate-800 dark:text-slate-100">Nama Pengguna</p>
-                      <p className="text-sm text-slate-500 dark:text-slate-400 truncate" title={user?.username === 'anabk' ? 'Dr. Ana Budi Kristiani, S.Sn., M.M' : user?.username}>
-                        {user?.username === 'anabk' ? 'Dr. Ana Budi Kristiani, S.Sn., M.M' : user?.username}
+                      <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 break-words" title={user?.username === 'anabk' ? 'Dr. Ana Budi Kristiani, S.Sn., M.M' : (user?.username === 'fajrur' ? 'Milad Fajrur' : user?.username)}>
+                        {user?.username === 'anabk' ? 'Dr. Ana Budi Kristiani, S.Sn., M.M' : (user?.username === 'fajrur' ? 'Milad Fajrur' : user?.username)}
                       </p>
                     </div>
                     <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 text-xs font-bold rounded-full w-max shrink-0">
-                      {user?.username === 'fajrur' ? 'Pemilik Utama' : user?.username === 'anabk' ? 'Ketua Jemaat' : 'Administrator'}
+                      {user?.username === 'fajrur' ? 'Mahasiswa Teologi' : user?.username === 'BEM' ? 'Badan Exclusive Mahasiswa' : user?.username === 'anabk' ? 'Ketua Jemaat' : 'Administrator'}
                     </span>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-700 pb-2">Preferensi Tampilan</h3>
-                  <div className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <div>
-                      <p className="font-semibold text-slate-800 dark:text-slate-100">Tema Gelap (Dark Mode)</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Beralih ke tampilan gelap untuk kenyamanan mata</p>
-                    </div>
-                    <button 
-                      onClick={toggleDarkMode}
-                      className={`w-12 h-6 rounded-full relative transition-colors focus:outline-none ${isDarkMode ? 'bg-blue-600' : 'bg-slate-300'}`}
-                    >
-                      <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${isDarkMode ? 'translate-x-7' : 'translate-x-1'}`}></div>
-                    </button>
                   </div>
                 </div>
 

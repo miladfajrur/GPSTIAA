@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { collection, onSnapshot, query, setDoc, doc, deleteDoc, serverTimestamp, orderBy, where } from "firebase/firestore";
 import Papa from "papaparse";
+import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Plus, Edit2, Trash2, Download, Printer } from "lucide-react";
+import { Plus, Edit2, Trash2, Download, Printer, Upload } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, BarChart, Bar, Cell } from "recharts";
 import { db } from "../lib/firebase";
 import { WeeklyReport } from "../types";
@@ -17,13 +18,54 @@ export default function WeeklyReportsPanel() {
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedReport, setSelectedReport] = useState<WeeklyReport | undefined>(undefined);
   const [reportToDelete, setReportToDelete] = useState<string | null>(null);
+
+  const [dateFilterMode, setDateFilterMode] = useState<string>("Bulan Ini");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
 
   // Extract unique "Nama Ibadah" for dropdown filter
   const uniqueNamaIbadah = Array.from(new Set(reports.map(r => r.nama_ibadah).filter(Boolean)));
 
-  const filteredReports = reports.filter(r => ibadahFilter === "Semua" ? true : r.nama_ibadah === ibadahFilter);
+  const filteredReports = reports.filter(r => {
+    const matchesIbadah = ibadahFilter === "Semua" ? true : r.nama_ibadah === ibadahFilter;
+    if (!matchesIbadah) return false;
+
+    if (dateFilterMode === "Semua") return true;
+
+    const reportDate = new Date(r.tanggal_ibadah);
+    const now = new Date();
+
+    if (dateFilterMode === "Bulan Ini") {
+      return reportDate.getMonth() === now.getMonth() && reportDate.getFullYear() === now.getFullYear();
+    }
+
+    if (dateFilterMode === "Bulan Lalu") {
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      return reportDate.getMonth() === lastMonth.getMonth() && reportDate.getFullYear() === lastMonth.getFullYear();
+    }
+
+    if (dateFilterMode === "Kustom") {
+      let matchesStart = true;
+      let matchesEnd = true;
+      if (startDate) {
+        const sDate = new Date(startDate);
+        sDate.setHours(0, 0, 0, 0);
+        matchesStart = reportDate >= sDate;
+      }
+      if (endDate) {
+        const eDate = new Date(endDate);
+        eDate.setHours(23, 59, 59, 999);
+        matchesEnd = reportDate <= eDate;
+      }
+      return matchesStart && matchesEnd;
+    }
+
+    return true;
+  });
 
   useEffect(() => {
     const q = query(
@@ -89,14 +131,91 @@ export default function WeeklyReportsPanel() {
     return new Date(dateString).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
-  const handleExportCSV = () => {
-    const csvData = filteredReports.map(r => ({
+  const handleDownloadTemplateExcel = () => {
+    const templateData = [{
+      "Tanggal Ibadah": "2023-12-31",
+      "Nama Ibadah": "Ibadah Minggu Raya",
+      "Kehadiran Dewasa": 150,
+      "Kehadiran Pemuda": 50,
+      "Kehadiran Anak": 30,
+      "Persembahan Umum": 1500000,
+      "Perpuluhan": 5000000,
+      "Diakonia": 500000,
+      "Pemasukan Lainnya": 0,
+      "Pengeluaran": 200000,
+      "Keterangan Pengeluaran": "Konsumsi petugas",
+      "Keterangan": "Ibadah berjalan lancar"
+    }];
+    
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+    XLSX.writeFile(workbook, "Template_Impor_Laporan_Kebaktian.xlsx");
+  };
+
+  const handleImportExcel = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json<any>(worksheet);
+        
+        let importedCount = 0;
+        
+        for (const row of rows) {
+          const tanggal_ibadah = (row["Tanggal Ibadah"] || "").toString().trim();
+          const nama_ibadah = (row["Nama Ibadah"] || "").toString().trim();
+          
+          if (!tanggal_ibadah || !nama_ibadah) continue;
+          
+          const docRef = doc(collection(db, "weekly_reports"));
+          await setDoc(docRef, {
+            tanggal_ibadah,
+            nama_ibadah,
+            kehadiran_dewasa: Number(row["Kehadiran Dewasa"]) || 0,
+            kehadiran_pemuda: Number(row["Kehadiran Pemuda"]) || 0,
+            kehadiran_anak: Number(row["Kehadiran Anak"]) || 0,
+            persembahan_umum: Number(row["Persembahan Umum"]) || 0,
+            perpuluhan: Number(row["Perpuluhan"]) || 0,
+            diakonia: Number(row["Diakonia"]) || 0,
+            pemasukan_lainnya: Number(row["Pemasukan Lainnya"]) || 0,
+            pengeluaran: Number(row["Pengeluaran"]) || 0,
+            keterangan_pengeluaran: (row["Keterangan Pengeluaran"] || "").toString(),
+            keterangan: (row["Keterangan"] || "").toString(),
+            tenantId: "gpstiaa",
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+          importedCount++;
+        }
+        
+        alert(`Berhasil mengimpor ${importedCount} data laporan mingguan.`);
+      } catch (error) {
+        console.error("Error importing Excel:", error);
+        alert("Terjadi kesalahan saat memproses file Excel.");
+      } finally {
+        setIsImporting(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleExportExcel = () => {
+    const excelData = filteredReports.map(r => ({
       "Tanggal Ibadah": r.tanggal_ibadah,
       "Nama Ibadah": r.nama_ibadah,
       "Kehadiran Dewasa": r.kehadiran_dewasa,
       "Kehadiran Pemuda": r.kehadiran_pemuda,
       "Kehadiran Anak": r.kehadiran_anak,
-      "Total Kehadiran": r.kehadiran_dewasa + r.kehadiran_pemuda + r.kehadiran_anak,
+      "Total Kehadiran": (r.kehadiran_dewasa || 0) + (r.kehadiran_pemuda || 0) + (r.kehadiran_anak || 0),
       "Persembahan Umum": r.persembahan_umum,
       "Perpuluhan": r.perpuluhan,
       "Diakonia": r.diakonia,
@@ -107,74 +226,88 @@ export default function WeeklyReportsPanel() {
       "Keterangan": r.keterangan || ""
     }));
     
-    const csv = Papa.unparse(csvData);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `laporan_kebaktian_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Using import * as XLSX dynamically since it's already installed via Dashboard changes, or rely on Papa if not available.
+    // Wait, in this file XLSX isn't imported yet.
+    import('xlsx').then(XLSX => {
+        const worksheet = XLSX.utils.json_to_sheet(excelData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan_Kebaktian");
+        XLSX.writeFile(workbook, `laporan_kebaktian_${new Date().toISOString().split('T')[0]}.xlsx`);
+    });
   };
 
   const handleExportPDF = () => {
-    const doc = new jsPDF();
+    const doc = new jsPDF("l", "pt", "a4"); // Landscape
     doc.setFont("helvetica");
 
     // Title
     doc.setFontSize(16);
-    doc.text(`Laporan Ringkasan Total Keuangan${ibadahFilter !== 'Semua' ? ` (${ibadahFilter})` : ''}`, 14, 20);
+    doc.text(`Laporan Kebaktian & Keuangan GPSTIAA${ibadahFilter !== 'Semua' ? ` (${ibadahFilter})` : ''}`, 40, 40);
     
     doc.setFontSize(10);
-    doc.text(`Dicetak pada: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, 14, 28);
+    doc.text(`Dicetak pada: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, 40, 60);
     
-    // Prepare table data
+    const tableColumns = [
+      "Tanggal", "Nama Ibadah", "D/P/A", "T. Hadir", "Persembahan", "Perpuluhan", "Diakonia", "Lainnya", "Pemasukan", "Pengeluaran"
+    ];
+
+    const tableRows = filteredReports.map(r => {
+      const hadirD = r.kehadiran_dewasa || 0;
+      const hadirP = r.kehadiran_pemuda || 0;
+      const hadirA = r.kehadiran_anak || 0;
+      const totalHadir = hadirD + hadirP + hadirA;
+      const totalPemasukan = (r.persembahan_umum || 0) + (r.perpuluhan || 0) + (r.diakonia || 0) + (r.pemasukan_lainnya || 0);
+
+      return [
+        r.tanggal_ibadah,
+        r.nama_ibadah,
+        `${hadirD}/${hadirP}/${hadirA}`,
+        totalHadir,
+        formatRupiah(r.persembahan_umum || 0),
+        formatRupiah(r.perpuluhan || 0),
+        formatRupiah(r.diakonia || 0),
+        formatRupiah(r.pemasukan_lainnya || 0),
+        formatRupiah(totalPemasukan),
+        formatRupiah(r.pengeluaran || 0)
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 80,
+      head: [tableColumns],
+      body: tableRows,
+      theme: 'grid',
+      headStyles: { fillColor: [30, 58, 138], textColor: 255 },
+      styles: { fontSize: 8, cellPadding: 3 },
+      columnStyles: {
+        4: { halign: 'right' },
+        5: { halign: 'right' },
+        6: { halign: 'right' },
+        7: { halign: 'right' },
+        8: { halign: 'right', fontStyle: 'bold' },
+        9: { halign: 'right', fontStyle: 'bold', textColor: [220, 38, 38] }
+      }
+    });
+
+    const finalY = (doc as any).lastAutoTable.finalY || 80;
+    
+    // Prepare summary data
     const totalAllPemasukan = filteredReports.reduce((acc, r) => acc + (r.persembahan_umum || 0) + (r.perpuluhan || 0) + (r.diakonia || 0) + (r.pemasukan_lainnya || 0), 0);
     const totalAllPengeluaran = filteredReports.reduce((acc, r) => acc + (r.pengeluaran || 0), 0);
     const totalSaldo = totalAllPemasukan - totalAllPengeluaran;
 
-    const summaryData = [
-      ["Total Keseluruhan Pemasukan", new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(totalAllPemasukan)],
-      ["Total Keseluruhan Pengeluaran", new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(totalAllPengeluaran)],
-      ["Selisih / Saldo Akhir", new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(totalSaldo)]
-    ];
-
-    autoTable(doc, {
-      startY: 35,
-      head: [["Keterangan", "Total (Rp)"]],
-      body: summaryData,
-      theme: 'grid',
-      headStyles: { fillColor: [30, 58, 138] },
-      styles: { fontSize: 11, cellPadding: 6 },
-      columnStyles: {
-        0: { cellWidth: 100 },
-        1: { halign: 'right', cellWidth: 'auto', fontStyle: 'bold' } // align right for currency
-      },
-      didParseCell: function(data) {
-        // Change color for summary
-        if (data.row.index === 2 && data.section === 'body') {
-            data.cell.styles.fontStyle = 'bold';
-            data.cell.styles.textColor = totalSaldo >= 0 ? [37, 99, 235] : [220, 38, 38];
-        }
-        if (data.row.index === 1 && data.section === 'body') {
-            data.cell.styles.textColor = [220, 38, 38];
-        }
-        if (data.row.index === 0 && data.section === 'body') {
-            data.cell.styles.textColor = [16, 185, 129];
-        }
-      }
-    });
-
-    const finalY = (doc as any).lastAutoTable.finalY || 35;
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("Ringkasan Total:", 40, finalY + 30);
+    doc.setFont("helvetica", "normal");
     
-    doc.setFontSize(10);
-    doc.text("Keterangan:", 14, finalY + 15);
-    doc.setFontSize(9);
-    doc.text("- Dokumen ini digenerate secara otomatis oleh sistem.", 14, finalY + 22);
+    doc.text(`Total Keseluruhan Pemasukan: ${formatRupiah(totalAllPemasukan)}`, 40, finalY + 50);
+    doc.text(`Total Keseluruhan Pengeluaran: ${formatRupiah(totalAllPengeluaran)}`, 40, finalY + 65);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text(`Selisih / Saldo Akhir: ${formatRupiah(totalSaldo)}`, 40, finalY + 85);
 
-    doc.save(`Ringkasan_Keuangan_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`Laporan_Kebaktian_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const chartData = [...filteredReports].reverse().map(r => ({
@@ -212,11 +345,53 @@ export default function WeeklyReportsPanel() {
             <Printer className="w-4 h-4" /> Unduh Ringkasan PDF
           </button>
           <button
-            onClick={handleExportCSV}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 focus:outline-none"
+            onClick={handleExportExcel}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 focus:outline-none shrink-0"
           >
-            <Download className="w-4 h-4" /> Unduh Laporan CSV
+            <Download className="w-4 h-4" /> Unduh Laporan Excel
           </button>
+          
+          <div className="relative group shrink-0">
+             <button
+               className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 focus:outline-none"
+             >
+               <Upload className="w-4 h-4" /> Impor Excel
+             </button>
+             <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 transform origin-top-right scale-95 group-hover:scale-100">
+                <div className="p-1.5 flex flex-col gap-1">
+                  <button
+                    onClick={handleDownloadTemplateExcel}
+                    className="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-md transition-colors flex items-center gap-2"
+                  >
+                    <Download className="h-3.5 w-3.5" /> Template Excel
+                  </button>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isImporting}
+                    className="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-md transition-colors flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {isImporting ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-slate-400 border-t-slate-700 rounded-full animate-spin shrink-0"></span> Mengimpor...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-3.5 w-3.5" /> Pilih File Excel
+                      </>
+                    )}
+                  </button>
+                </div>
+             </div>
+          </div>
+          
+          <input
+            type="file"
+            accept=".xlsx, .xls"
+            ref={fileInputRef}
+            onChange={handleImportExcel}
+            className="hidden"
+          />
+
           <button
             onClick={() => setIsBulkModalOpen(true)}
             className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 focus:outline-none"
@@ -251,10 +426,10 @@ export default function WeeklyReportsPanel() {
                         itemStyle={{ color: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#475569' }}
                      />
                      <Legend wrapperStyle={{ fontSize: '11px', color: document.documentElement.classList.contains('dark') ? '#94a3b8' : '#475569' }} />
-                     <Line type="monotone" dataKey="Dewasa" stroke="#1E3A8A" strokeWidth={2} dot={{ r: 3 }} />
-                     <Line type="monotone" dataKey="Pemuda" stroke="#10B981" strokeWidth={2} dot={{ r: 3 }} />
-                     <Line type="monotone" dataKey="Anak" stroke="#F59E0B" strokeWidth={2} dot={{ r: 3 }} />
-                     <Line type="monotone" dataKey="Total" stroke="#64748B" strokeDasharray="4 4" strokeWidth={2} dot={false} />
+                     <Line type="monotone" dataKey="Dewasa" stroke="#1E3A8A" strokeWidth={2} dot={{ r: 3 }} animationDuration={1500} animationEasing="ease-out" />
+                     <Line type="monotone" dataKey="Pemuda" stroke="#10B981" strokeWidth={2} dot={{ r: 3 }} animationDuration={1500} animationEasing="ease-out" />
+                     <Line type="monotone" dataKey="Anak" stroke="#F59E0B" strokeWidth={2} dot={{ r: 3 }} animationDuration={1500} animationEasing="ease-out" />
+                     <Line type="monotone" dataKey="Total" stroke="#64748B" strokeDasharray="4 4" strokeWidth={2} dot={false} animationDuration={1500} animationEasing="ease-out" />
                    </LineChart>
                  </ResponsiveContainer>
                </div>
@@ -274,8 +449,8 @@ export default function WeeklyReportsPanel() {
                         formatter={(value: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value)}
                      />
                      <Legend wrapperStyle={{ fontSize: '11px' }} />
-                     <Line type="monotone" name="Total Pemasukan" dataKey="TotalPemasukan" stroke="#10B981" strokeWidth={2} dot={{ r: 3 }} />
-                     <Line type="monotone" name="Total Pengeluaran" dataKey="TotalPengeluaran" stroke="#EF4444" strokeWidth={2} dot={{ r: 3 }} />
+                     <Line type="monotone" name="Total Pemasukan" dataKey="TotalPemasukan" stroke="#10B981" strokeWidth={2} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} animationDuration={1500} animationEasing="ease-out" />
+                     <Line type="monotone" name="Total Pengeluaran" dataKey="TotalPengeluaran" stroke="#EF4444" strokeWidth={2} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} animationDuration={1500} animationEasing="ease-out" />
                    </LineChart>
                  </ResponsiveContainer>
                </div>
@@ -285,9 +460,44 @@ export default function WeeklyReportsPanel() {
         
         {/* Table Controls (Filter) */}
         {!isLoading && reports.length > 0 && (
-          <div className="bg-slate-50 border-b border-slate-200 dark:bg-slate-800/80 dark:border-slate-700 px-4 py-3 flex justify-end">
+          <div className="bg-slate-50 border-b border-slate-200 dark:bg-slate-800/80 dark:border-slate-700 px-4 py-3 flex flex-wrap gap-3 justify-end items-center">
             <div className="flex items-center gap-2">
-              <label htmlFor="ibadah-filter" className="text-sm font-semibold text-slate-600 dark:text-slate-300">Filter Ibadah:</label>
+              <label htmlFor="date-filter" className="text-sm font-semibold text-slate-600 dark:text-slate-300">Waktu:</label>
+              <select
+                id="date-filter"
+                className="text-sm border flex-1 md:w-auto border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow"
+                value={dateFilterMode}
+                onChange={(e) => setDateFilterMode(e.target.value)}
+              >
+                <option value="Semua">Semua</option>
+                <option value="Bulan Ini">Bulan Ini</option>
+                <option value="Bulan Lalu">Bulan Lalu</option>
+                <option value="Kustom">Kustom</option>
+              </select>
+            </div>
+
+            {dateFilterMode === "Kustom" && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+                <span className="text-slate-500 dark:text-slate-400">-</span>
+                <input
+                  type="date"
+                  className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </div>
+            )}
+
+            <div className="hidden sm:block w-px h-6 bg-slate-300 dark:bg-slate-600 mx-1"></div>
+
+            <div className="flex items-center gap-2">
+              <label htmlFor="ibadah-filter" className="text-sm font-semibold text-slate-600 dark:text-slate-300">Ibadah:</label>
               <select
                 id="ibadah-filter"
                 className="text-sm border flex-1 md:w-auto border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow"
@@ -421,7 +631,7 @@ export default function WeeklyReportsPanel() {
                         formatter={(value: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value)}
                         cursor={{fill: document.documentElement.classList.contains('dark') ? '#334155' : '#f1f5f9'}}
                       />
-                      <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={60}>
+                      <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={60} isAnimationActive={true} animationDuration={1000} animationEasing="ease-out">
                         {summaryChartData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.fill} />
                         ))}

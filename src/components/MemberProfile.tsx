@@ -53,7 +53,7 @@ export default function MemberProfile({ member, onBack }: MemberProfileProps) {
 
               <div className="text-center sm:text-left flex-1 w-full relative z-10 pt-2">
                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-2">
-                   <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white" style={{textShadow: '0 1px 2px rgba(0,0,0,0.1)'}}>
+                   <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white break-words leading-tight mt-4 sm:mt-0" style={{textShadow: '0 1px 2px rgba(0,0,0,0.1)'}}>
                       {formatNameTitleCase(member.nama_lengkap)}
                    </h1>
                    {isBirthdayToday && (
