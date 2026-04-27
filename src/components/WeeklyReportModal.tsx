@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X } from "lucide-react";
+import { X, Calendar, FileText, Users, DollarSign, ArrowUpRight, ArrowDownRight, Edit3 } from "lucide-react";
 import { WeeklyReport } from "../types";
 
 interface WeeklyReportModalProps {
@@ -91,211 +91,239 @@ export default function WeeklyReportModal({ isOpen, onClose, initialData, onSave
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-y-auto pt-10 pb-10">
-      <div className="flex w-full max-w-4xl flex-col rounded-2xl bg-white dark:bg-slate-800 shadow-2xl relative my-auto">
-        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 px-6 py-4">
-          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
-            {initialData ? "Edit Laporan" : "Tambah Laporan"} Mingguan
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto pt-10 pb-10">
+      <div className="flex w-full max-w-4xl flex-col rounded-2xl bg-slate-50 dark:bg-slate-900 shadow-2xl relative my-auto border border-slate-200 dark:border-slate-700 overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/80 px-6 py-5">
+          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+             <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+             {initialData ? "Edit Laporan Mingguan" : "Tambah Laporan Mingguan"}
           </h2>
           <button
             onClick={onClose}
-            className="rounded-full p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none"
+            className="rounded-full p-2 bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200 focus:outline-none transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 max-h-[75vh]">
-          <form id="report-form" onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Tanggal Ibadah</label>
-                <input
-                  type="date"
-                  name="tanggal_ibadah"
-                  required
-                  value={formData.tanggal_ibadah}
-                  onChange={handleChange}
-                  className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Nama Ibadah</label>
-                <input
-                  type="text"
-                  name="nama_ibadah"
-                  required
-                  value={formData.nama_ibadah}
-                  onChange={handleChange}
-                  placeholder="mis. Ibadah Raya Minggu, Ibadah Pemuda"
-                  className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
-                />
-              </div>
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 max-h-[75vh]">
+          <form id="report-form" onSubmit={handleSubmit} className="space-y-6 max-w-5xl mx-auto">
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+               {/* Informasi Ibadah */}
+               <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 space-y-4">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2 border-b border-slate-100 dark:border-slate-700 pb-3">
+                    <Calendar className="w-4 h-4 text-blue-500" /> Informasi Jadwal
+                  </h3>
+                  <div className="space-y-4 mt-2">
+                     <div>
+                       <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Tanggal Ibadah</label>
+                       <input
+                         type="date"
+                         name="tanggal_ibadah"
+                         required
+                         value={formData.tanggal_ibadah}
+                         onChange={handleChange}
+                         className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all shadow-inner"
+                       />
+                     </div>
+                     <div>
+                       <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Nama / Jenis Ibadah</label>
+                       <input
+                         type="text"
+                         name="nama_ibadah"
+                         required
+                         value={formData.nama_ibadah}
+                         onChange={handleChange}
+                         placeholder="mis. Ibadah Raya Minggu, Ibadah Pemuda"
+                         className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all shadow-inner"
+                       />
+                     </div>
+                  </div>
+               </div>
+
+               {/* Kehadiran */}
+               <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 space-y-4">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2 border-b border-slate-100 dark:border-slate-700 pb-3">
+                    <Users className="w-4 h-4 text-indigo-500" /> Statistik Kehadiran
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-2">
+                     <div>
+                       <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 capitalize">Umum / Dewasa</label>
+                       <input
+                         type="number"
+                         name="kehadiran_dewasa"
+                         min="0"
+                         required
+                         value={formData.kehadiran_dewasa || ''}
+                         onChange={handleChange}
+                         className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all shadow-inner"
+                       />
+                     </div>
+                     <div>
+                       <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 capitalize">Pemuda</label>
+                       <input
+                         type="number"
+                         name="kehadiran_pemuda"
+                         min="0"
+                         required
+                         value={formData.kehadiran_pemuda || ''}
+                         onChange={handleChange}
+                         className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all shadow-inner"
+                       />
+                     </div>
+                     <div className="col-span-2 sm:col-span-1">
+                       <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 capitalize">Anak</label>
+                       <input
+                         type="number"
+                         name="kehadiran_anak"
+                         min="0"
+                         required
+                         value={formData.kehadiran_anak || ''}
+                         onChange={handleChange}
+                         className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all shadow-inner"
+                       />
+                     </div>
+                  </div>
+               </div>
             </div>
 
-            <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
-              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Data Kehadiran</h3>
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Hadir Dewasa / Umum</label>
-                  <input
-                    type="number"
-                    name="kehadiran_dewasa"
-                    min="0"
-                    required
-                    value={formData.kehadiran_dewasa || ''}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Hadir Pemuda / Remaja</label>
-                  <input
-                    type="number"
-                    name="kehadiran_pemuda"
-                    min="0"
-                    required
-                    value={formData.kehadiran_pemuda || ''}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Hadir Anak (Sekolah Minggu)</label>
-                  <input
-                    type="number"
-                    name="kehadiran_anak"
-                    min="0"
-                    required
-                    value={formData.kehadiran_anak || ''}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
-                  />
-                </div>
-              </div>
+            {/* Pemasukan */}
+            <div className="bg-emerald-50/30 dark:bg-emerald-900/10 rounded-xl shadow-sm border border-emerald-100 dark:border-emerald-800/30 p-5 space-y-4">
+               <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-2 border-b border-emerald-200/50 dark:border-emerald-800/50 pb-3">
+                 <ArrowUpRight className="w-5 h-5" /> Data Pemasukan (Rp)
+               </h3>
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                 <div>
+                   <label className="block text-xs font-semibold text-emerald-800 dark:text-emerald-300 mb-1.5">Persembahan Umum</label>
+                   <div className="relative rounded-md shadow-sm">
+                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                       <span className="text-emerald-600 dark:text-emerald-500 font-medium sm:text-sm">Rp</span>
+                     </div>
+                     <input
+                       type="text"
+                       name="persembahan_umum"
+                       required
+                       value={formatRupiah(formData.persembahan_umum || 0)}
+                       onChange={handleRupiahChange}
+                       className="block w-full rounded-lg border border-emerald-200 dark:border-emerald-800/50 pl-10 pr-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
+                     />
+                   </div>
+                 </div>
+                 <div>
+                   <label className="block text-xs font-semibold text-emerald-800 dark:text-emerald-300 mb-1.5">Perpuluhan / Persembahan Khusus</label>
+                   <div className="relative rounded-md shadow-sm">
+                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                       <span className="text-emerald-600 dark:text-emerald-500 font-medium sm:text-sm">Rp</span>
+                     </div>
+                     <input
+                       type="text"
+                       name="perpuluhan"
+                       required
+                       value={formatRupiah(formData.perpuluhan || 0)}
+                       onChange={handleRupiahChange}
+                       className="block w-full rounded-lg border border-emerald-200 dark:border-emerald-800/50 pl-10 pr-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
+                     />
+                   </div>
+                 </div>
+                 <div>
+                   <label className="block text-xs font-semibold text-emerald-800 dark:text-emerald-300 mb-1.5">Diakonia</label>
+                   <div className="relative rounded-md shadow-sm">
+                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                       <span className="text-emerald-600 dark:text-emerald-500 font-medium sm:text-sm">Rp</span>
+                     </div>
+                     <input
+                       type="text"
+                       name="diakonia"
+                       required
+                       value={formatRupiah(formData.diakonia || 0)}
+                       onChange={handleRupiahChange}
+                       className="block w-full rounded-lg border border-emerald-200 dark:border-emerald-800/50 pl-10 pr-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
+                     />
+                   </div>
+                 </div>
+                 <div>
+                   <label className="block text-xs font-semibold text-emerald-800 dark:text-emerald-300 mb-1.5">Pemasukan Lainnya</label>
+                   <div className="relative rounded-md shadow-sm">
+                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                       <span className="text-emerald-600 dark:text-emerald-500 font-medium sm:text-sm">Rp</span>
+                     </div>
+                     <input
+                       type="text"
+                       name="pemasukan_lainnya"
+                       required
+                       value={formatRupiah(formData.pemasukan_lainnya || 0)}
+                       onChange={handleRupiahChange}
+                       className="block w-full rounded-lg border border-emerald-200 dark:border-emerald-800/50 pl-10 pr-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
+                     />
+                   </div>
+                 </div>
+               </div>
             </div>
 
-            <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
-              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Laporan Pemasukan (Rp)</h3>
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Persembahan Umum</label>
-                  <div className="relative mt-1 rounded-md shadow-sm">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                      <span className="text-slate-500 dark:text-slate-400 sm:text-sm">Rp</span>
-                    </div>
-                    <input
-                      type="text"
-                      name="persembahan_umum"
-                      required
-                      value={formatRupiah(formData.persembahan_umum || 0)}
-                      onChange={handleRupiahChange}
-                      className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 pl-10 pr-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Perpuluhan</label>
-                  <div className="relative mt-1 rounded-md shadow-sm">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                      <span className="text-slate-500 dark:text-slate-400 sm:text-sm">Rp</span>
-                    </div>
-                    <input
-                      type="text"
-                      name="perpuluhan"
-                      required
-                      value={formatRupiah(formData.perpuluhan || 0)}
-                      onChange={handleRupiahChange}
-                      className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 pl-10 pr-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Pemasukan Diakonia</label>
-                  <div className="relative mt-1 rounded-md shadow-sm">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                      <span className="text-slate-500 dark:text-slate-400 sm:text-sm">Rp</span>
-                    </div>
-                    <input
-                      type="text"
-                      name="diakonia"
-                      required
-                      value={formatRupiah(formData.diakonia || 0)}
-                      onChange={handleRupiahChange}
-                      className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 pl-10 pr-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Pemasukan Lainnya</label>
-                  <div className="relative mt-1 rounded-md shadow-sm">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                      <span className="text-slate-500 dark:text-slate-400 sm:text-sm">Rp</span>
-                    </div>
-                    <input
-                      type="text"
-                      name="pemasukan_lainnya"
-                      required
-                      value={formatRupiah(formData.pemasukan_lainnya || 0)}
-                      onChange={handleRupiahChange}
-                      className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 pl-10 pr-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
-                    />
-                  </div>
-                </div>
-              </div>
+            {/* Pengeluaran */}
+            <div className="bg-red-50/30 dark:bg-red-900/10 rounded-xl shadow-sm border border-red-100 dark:border-red-800/30 p-5 space-y-4">
+               <h3 className="text-sm font-bold uppercase tracking-wider text-red-700 dark:text-red-400 flex items-center gap-2 border-b border-red-200/50 dark:border-red-800/50 pb-3">
+                 <ArrowDownRight className="w-5 h-5" /> Data Pengeluaran (Rp)
+               </h3>
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                 <div>
+                   <label className="block text-xs font-semibold text-red-800 dark:text-red-300 mb-1.5">Total Nominal Pengeluaran</label>
+                   <div className="relative rounded-md shadow-sm">
+                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                       <span className="text-red-600 dark:text-red-500 font-medium sm:text-sm">Rp</span>
+                     </div>
+                     <input
+                       type="text"
+                       name="pengeluaran"
+                       value={formatRupiah(formData.pengeluaran || 0)}
+                       onChange={handleRupiahChange}
+                       className="block w-full rounded-lg border border-red-200 dark:border-red-800/50 pl-10 pr-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all"
+                     />
+                   </div>
+                 </div>
+                 <div>
+                   <label className="block text-xs font-semibold text-red-800 dark:text-red-300 mb-1.5">Keterangan / Rincian Pengeluaran</label>
+                   <input
+                     type="text"
+                     name="keterangan_pengeluaran"
+                     value={formData.keterangan_pengeluaran || ''}
+                     onChange={handleChange}
+                     placeholder="mis. Konsumsi petugas, alat tulis, biaya operasional"
+                     className="block w-full rounded-lg border border-red-200 dark:border-red-800/50 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all shadow-inner placeholder-slate-400 dark:placeholder-slate-500"
+                   />
+                 </div>
+               </div>
             </div>
 
-            <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
-              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Laporan Pengeluaran Kebutuhan (Rp)</h3>
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Total Pengeluaran</label>
-                  <div className="relative mt-1 rounded-md shadow-sm">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                      <span className="text-slate-500 dark:text-slate-400 sm:text-sm">Rp</span>
-                    </div>
-                    <input
-                      type="text"
-                      name="pengeluaran"
-                      value={formatRupiah(formData.pengeluaran || 0)}
-                      onChange={handleRupiahChange}
-                      className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 pl-10 pr-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Keterangan Pengeluaran</label>
-                  <input
-                    type="text"
-                    name="keterangan_pengeluaran"
-                    value={formData.keterangan_pengeluaran || ''}
-                    onChange={handleChange}
-                    placeholder="mis. Konsumsi, Listrik, Kebersihan"
-                    className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
-                  />
-                </div>
-              </div>
+            {/* Catatan Lainnya */}
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 space-y-4">
+               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2 border-b border-slate-100 dark:border-slate-700 pb-3">
+                 <Edit3 className="w-4 h-4 text-amber-500" /> Catatan Tambahan (Bila Ada)
+               </h3>
+               <div className="mt-2">
+                 <textarea
+                   name="keterangan"
+                   rows={3}
+                   value={formData.keterangan || ''}
+                   onChange={handleChange}
+                   placeholder="Tuliskan catatan tambahan, nama pengkhotbah, kesaksian, atau rincian lainnya..."
+                   className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all shadow-inner placeholder-slate-400 dark:placeholder-slate-500 resize-none"
+                 />
+               </div>
             </div>
 
-            <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Keterangan Tambahan / Laporan Lain</label>
-              <textarea
-                name="keterangan"
-                rows={3}
-                value={formData.keterangan || ''}
-                onChange={handleChange}
-                placeholder="Catatan tambahan, pembicara, ringkasan, dll."
-                className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
-              />
-            </div>
           </form>
         </div>
 
-        <div className="flex items-center justify-end gap-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-6 py-4 rounded-b-2xl">
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/80 px-6 py-4">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+            className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-5 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors focus:outline-none"
           >
             Batal
           </button>
@@ -303,9 +331,11 @@ export default function WeeklyReportModal({ isOpen, onClose, initialData, onSave
             type="submit"
             form="report-form"
             disabled={isSubmitting}
-            className="rounded-lg bg-blue-800 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 disabled:opacity-50"
+            className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-bold text-white shadow-md hover:bg-blue-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 disabled:opacity-50 transition-all active:scale-95 flex items-center gap-2"
           >
-            {isSubmitting ? "Menyimpan..." : "Simpan Data"}
+            {isSubmitting ? (
+               <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> Menyimpan...</>
+            ) : "Simpan Laporan"}
           </button>
         </div>
       </div>

@@ -182,7 +182,7 @@ export default function MemberViewModal({ isOpen, onClose, member, ketuaJemaat =
                  <div className="absolute bottom-0 right-20 -mb-12 w-32 h-32 bg-blue-400 opacity-20 rounded-full blur-xl"></div>
                  
                  <div className="h-16 w-auto shrink-0 relative z-10 flex items-center justify-center bg-white p-1.5 rounded-xl shadow-md">
-                    <img src="https://i.ibb.co.com/Xfg0zs6D/GPSTIAA-LOGO.png" alt="GPSTIAA" className="h-full w-auto object-contain" crossOrigin="anonymous" />
+                    <img src="https://corsproxy.io/?https%3A%2F%2Fi.ibb.co.com%2FXfg0zs6D%2FGPSTIAA-LOGO.png" alt="GPSTIAA" className="h-full w-auto object-contain" crossOrigin="anonymous" />
                  </div>
                  <div className="relative z-10">
                     <h1 className="text-2xl font-black uppercase tracking-widest drop-shadow-md leading-tight">KARTU JEMAAT</h1>

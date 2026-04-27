@@ -236,16 +236,43 @@ export default function WeeklyReportsPanel() {
     });
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const doc = new jsPDF("l", "pt", "a4"); // Landscape
-    doc.setFont("helvetica");
+    
+    // Attempt to add logo using CORS proxy to bypass canvas tinting restrictions
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.src = "https://corsproxy.io/?https%3A%2F%2Fi.ibb.co.com%2FXfg0zs6D%2FGPSTIAA-LOGO.png";
+    await new Promise<void>((resolve) => {
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            const dataURL = canvas.toDataURL("image/png");
+            doc.addImage(dataURL, 'PNG', 40, 30, 45, 45); // Slightly larger
+          }
+        } catch (e) {
+          console.error("Failed to add image due to CORS", e);
+        }
+        resolve();
+      };
+      img.onerror = () => resolve();
+    });
 
     // Title
-    doc.setFontSize(16);
-    doc.text(`Laporan Kebaktian & Keuangan GPSTIAA${ibadahFilter !== 'Semua' ? ` (${ibadahFilter})` : ''}`, 40, 40);
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Laporan Catatan Kebaktian & Keuangan Mingguan - GPSTIAA Siloam`, 95, 52);
     
-    doc.setFontSize(10);
-    doc.text(`Dicetak pada: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, 40, 60);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Periode Laporan: ${ibadahFilter}  |  Tanggal Cetak: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, 95, 70);
+    doc.setTextColor(0, 0, 0);
     
     const tableColumns = [
       "Tanggal", "Nama Ibadah", "D/P/A", "T. Hadir", "Persembahan", "Perpuluhan", "Diakonia", "Lainnya", "Pemasukan", "Pengeluaran"
@@ -259,7 +286,7 @@ export default function WeeklyReportsPanel() {
       const totalPemasukan = (r.persembahan_umum || 0) + (r.perpuluhan || 0) + (r.diakonia || 0) + (r.pemasukan_lainnya || 0);
 
       return [
-        r.tanggal_ibadah,
+        formatDate(r.tanggal_ibadah),
         r.nama_ibadah,
         `${hadirD}/${hadirP}/${hadirA}`,
         totalHadir,
@@ -273,19 +300,21 @@ export default function WeeklyReportsPanel() {
     });
 
     autoTable(doc, {
-      startY: 80,
+      startY: 95,
       head: [tableColumns],
       body: tableRows,
       theme: 'grid',
-      headStyles: { fillColor: [30, 58, 138], textColor: 255 },
-      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      styles: { fontSize: 8, cellPadding: 4, lineColor: [226, 232, 240], lineWidth: 0.5 },
       columnStyles: {
+        3: { halign: 'center' },
         4: { halign: 'right' },
         5: { halign: 'right' },
         6: { halign: 'right' },
         7: { halign: 'right' },
-        8: { halign: 'right', fontStyle: 'bold' },
-        9: { halign: 'right', fontStyle: 'bold', textColor: [220, 38, 38] }
+        8: { halign: 'right', fontStyle: 'bold', textColor: [16, 185, 129] }, // emerald-500
+        9: { halign: 'right', fontStyle: 'bold', textColor: [239, 68, 68] } // red-500
       }
     });
 
@@ -296,16 +325,39 @@ export default function WeeklyReportsPanel() {
     const totalAllPengeluaran = filteredReports.reduce((acc, r) => acc + (r.pengeluaran || 0), 0);
     const totalSaldo = totalAllPemasukan - totalAllPengeluaran;
 
+    // Draw Summary box
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(40, finalY + 20, 400, 100, 5, 5, 'FD');
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(30, 58, 138); // blue-900
+    doc.text("RINGKASAN TOTAL", 55, finalY + 40);
+    
     doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Ringkasan Total:", 40, finalY + 30);
     doc.setFont("helvetica", "normal");
+    doc.setTextColor(50, 50, 50);
     
-    doc.text(`Total Keseluruhan Pemasukan: ${formatRupiah(totalAllPemasukan)}`, 40, finalY + 50);
-    doc.text(`Total Keseluruhan Pengeluaran: ${formatRupiah(totalAllPengeluaran)}`, 40, finalY + 65);
+    doc.text(`Total Keseluruhan Pemasukan:`, 55, finalY + 65);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(16, 185, 129); // emerald-500
+    doc.text(`${formatRupiah(totalAllPemasukan)}`, 250, finalY + 65);
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(50, 50, 50);
+    doc.text(`Total Keseluruhan Pengeluaran:`, 55, finalY + 85);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(239, 68, 68); // red-500
+    doc.text(`${formatRupiah(totalAllPengeluaran)}`, 250, finalY + 85);
+    
+    doc.line(55, finalY + 95, 420, finalY + 95);
     
     doc.setFont("helvetica", "bold");
-    doc.text(`Selisih / Saldo Akhir: ${formatRupiah(totalSaldo)}`, 40, finalY + 85);
+    doc.setTextColor(50, 50, 50);
+    doc.text(`SELISIH (SALDO AKHIR):`, 55, finalY + 110);
+    doc.setTextColor(totalSaldo >= 0 ? 37 : 239, totalSaldo >= 0 ? 99 : 68, totalSaldo >= 0 ? 235 : 68); // blue-600 or red-500
+    doc.text(`${formatRupiah(totalSaldo)}`, 250, finalY + 110);
 
     doc.save(`Laporan_Kebaktian_${new Date().toISOString().split('T')[0]}.pdf`);
   };
@@ -582,16 +634,26 @@ export default function WeeklyReportsPanel() {
             )}
           </tbody>
           {filteredReports.length > 0 && !isLoading && (
-            <tfoot className="bg-slate-50 dark:bg-slate-700/80 font-bold border-t-2 border-slate-200 dark:border-slate-600 shadow-sm z-10 sticky bottom-0">
+            <tfoot className="bg-slate-50 dark:bg-slate-700/90 font-bold border-t-2 border-slate-200 dark:border-slate-600 shadow-sm z-10 sticky bottom-0 text-sm">
               <tr>
-                <td colSpan={3} className="p-3 text-right">TOTAL KESELURUHAN:</td>
-                <td className="p-3 text-right font-mono text-emerald-600 dark:text-emerald-400">{formatRupiah(totalAllPemasukan)}</td>
-                <td className="p-3 text-right font-mono text-red-500 xl:table-cell hidden">{formatRupiah(totalAllPengeluaran)}</td>
+                <td colSpan={3} className="p-3 text-right border-r border-slate-200 dark:border-slate-600">
+                  <div className="text-slate-600 dark:text-slate-300">TOTAL PEMASUKAN:</div>
+                  <div className="text-slate-600 dark:text-slate-300 xl:hidden">TOTAL PENGELUARAN:</div>
+                  <div className="text-slate-600 dark:text-slate-300 xl:hidden mt-2 pt-2 border-t border-slate-200 dark:border-slate-600">SELISIH (SALDO):</div>
+                </td>
+                <td className="p-3 text-right bg-emerald-50/50 dark:bg-emerald-900/10">
+                  <div className="font-mono text-emerald-600 dark:text-emerald-400">{formatRupiah(totalAllPemasukan)}</div>
+                  <div className="font-mono text-red-500 xl:hidden">{formatRupiah(totalAllPengeluaran)}</div>
+                  <div className={`font-mono text-lg xl:hidden mt-2 pt-2 border-t border-slate-200 dark:border-slate-600 ${totalSaldo >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>{formatRupiah(totalSaldo)}</div>
+                </td>
+                <td className="p-3 text-right border-r border-slate-200 dark:border-slate-600 bg-red-50/50 dark:bg-red-900/10 hidden xl:table-cell">
+                  <div className="font-mono text-red-500">{formatRupiah(totalAllPengeluaran)}</div>
+                </td>
                 <td className="p-3"></td>
               </tr>
-              <tr>
-                <td colSpan={3} className="p-3 text-right">SELISIH (SALDO):</td>
-                <td colSpan={2} className={`p-3 text-center sm:text-right font-mono text-lg ${totalSaldo >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>{formatRupiah(totalSaldo)}</td>
+              <tr className="hidden xl:table-row bg-slate-100/50 dark:bg-slate-800/50">
+                <td colSpan={3} className="p-3 text-right border-r border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">SELISIH KESELURUHAN:</td>
+                <td colSpan={2} className={`p-3 text-center sm:text-right font-mono text-xl border-r border-slate-200 dark:border-slate-600 ${totalSaldo >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>{formatRupiah(totalSaldo)}</td>
                 <td className="p-3"></td>
               </tr>
             </tfoot>

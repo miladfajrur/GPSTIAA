@@ -363,15 +363,43 @@ export default function Dashboard() {
     XLSX.writeFile(workbook, "Buku_Induk_GPSTIAA.xlsx");
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const doc = new jsPDF("l", "pt", "a4"); // Landscape
     
-    // Titling
-    doc.setFontSize(16);
-    doc.text("Laporan Data Jemaat GPSTIAA", 40, 40);
+    // Attempt to add logo using CORS proxy to bypass canvas tinting restrictions
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.src = "https://corsproxy.io/?https%3A%2F%2Fi.ibb.co.com%2FXfg0zs6D%2FGPSTIAA-LOGO.png"; // Use proxy
+    await new Promise<void>((resolve) => {
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            const dataURL = canvas.toDataURL("image/png");
+            doc.addImage(dataURL, 'PNG', 40, 30, 45, 45); // Slightly larger
+          }
+        } catch (e) {
+          console.error("Failed to add image due to CORS", e);
+        }
+        resolve();
+      };
+      img.onerror = () => resolve();
+    });
     
-    doc.setFontSize(10);
-    doc.text(`Total Jemaat: ${members.length}  |  Tanggal Unduh: ${new Date().toLocaleDateString('id-ID')}`, 40, 60);
+    // Titling
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text("Laporan Induk Data Jemaat GPSTIAA Siloam", 95, 52); // Improved title
+    
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Total Keseluruhan Jemaat: ${members.length} Jiwa  |  Tanggal Unduh: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, 95, 70);
+    doc.setTextColor(0, 0, 0);
 
     const tableColumns = ["No", "No. Anggota", "Nama Lengkap", "L/P", "Tempat, Tanggal Lahir", "No. Telp", "Alamat Asal", "Jenis Baptis", "Tgl Masuk", "Tgl Keluar"];
     const tableRows = members.map((m, index) => [
@@ -390,13 +418,14 @@ export default function Dashboard() {
     (doc as any).autoTable({
       head: [tableColumns],
       body: tableRows,
-      startY: 80,
-      styles: { fontSize: 8, cellPadding: 3 },
-      headStyles: { fillColor: [30, 58, 138], textColor: 255 }, // blue-900 equivalent
+      startY: 95,
+      styles: { fontSize: 8, cellPadding: 4, lineColor: [226, 232, 240], lineWidth: 0.5 },
+      headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold' }, // blue-900 equivalent
+      alternateRowStyles: { fillColor: [248, 250, 252] },
       theme: 'grid'
     });
 
-    doc.save("Laporan_Jemaat_GPSTIAA.pdf");
+    doc.save("Laporan_Induk_Jemaat_GPSTIAA.pdf");
   };
 
   const handleDownloadTemplate = () => {
@@ -421,107 +450,108 @@ export default function Dashboard() {
     XLSX.writeFile(workbook, "Template_Impor_Jemaat.xlsx");
   };
 
-  const handleImportCSV = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportExcel = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     setIsImporting(true);
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: async (results) => {
-        try {
-          const rows = results.data as any[];
-          const validMembers: Member[] = [];
-          const existingNomor = new Set(members.map(m => m.nomor_anggota).filter(n => n));
-          const currentCsvNomor = new Set<string>();
-          const errorMessages: string[] = [];
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json<any>(worksheet);
 
-          for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            const rowNum = i + 2; // +1 zero-index, +1 header row
-            
-            const nomor_anggota = (row["Nomor Anggota"] || "").toString().trim();
-            const nama_lengkap = (row["Nama Lengkap"] || "").toString().trim();
-            const jenis_kelamin = (row["Jenis Kelamin"] || "").toString().trim();
-            
-            if (!nomor_anggota || !nama_lengkap || !jenis_kelamin) {
-               errorMessages.push(`Baris ${rowNum}: Kolom "Nomor Anggota", "Nama Lengkap", dan "Jenis Kelamin" wajib diisi.`);
-               continue;
-            }
+        const validMembers: Member[] = [];
+        const existingNomor = new Set(members.map(m => m.nomor_anggota).filter(n => n));
+        const currentCsvNomor = new Set<string>();
+        const errorMessages: string[] = [];
 
-            if (existingNomor.has(nomor_anggota)) {
-              errorMessages.push(`Baris ${rowNum}: Nomor Anggota '${nomor_anggota}' sudah terdaftar di sistem.`);
-              continue;
-            }
-
-            if (currentCsvNomor.has(nomor_anggota)) {
-              errorMessages.push(`Baris ${rowNum}: Nomor Anggota '${nomor_anggota}' duplikat di dalam baris CSV.`);
-              continue;
-            }
-
-            currentCsvNomor.add(nomor_anggota);
-
-            const memberData: Member = {
-              nomor_anggota,
-              nama_lengkap,
-              jenis_kelamin: (jenis_kelamin === "Pria" || jenis_kelamin === "Wanita") ? jenis_kelamin : "",
-              tempat_lahir: row["Tempat Lahir"] || "",
-              tanggal_lahir: row["Tanggal Lahir"] || "",
-              no_telp: row["No. Telp"] || "",
-              alamat_asal: row["Alamat Asal"] || "",
-              jenis_baptis: row["Jenis Baptis"] || "",
-              keterangan_baptis: row["Keterangan Baptis"] || "",
-              tanggal_masuk: row["Tanggal Masuk"] || "",
-              tanggal_keluar: row["Tanggal Keluar"] || "",
-              foto_url: row["Link Foto"] || "",
-              tenantId: "gpstiaa"
-            };
-
-            validMembers.push(memberData);
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          const rowNum = i + 2; // approximation for feedback
+          
+          const nomor_anggota = (row["Nomor Anggota"] || "").toString().trim();
+          const nama_lengkap = (row["Nama Lengkap"] || "").toString().trim();
+          const jenis_kelamin = (row["Jenis Kelamin"] || "").toString().trim();
+          
+          if (!nomor_anggota || !nama_lengkap || !jenis_kelamin) {
+             errorMessages.push(`Baris ${rowNum}: Kolom "Nomor Anggota", "Nama Lengkap", dan "Jenis Kelamin" wajib diisi.`);
+             continue;
           }
 
-          if (errorMessages.length > 0) {
-             const errorText = errorMessages.slice(0, 10).join("\n") + (errorMessages.length > 10 ? `\n...dan ${errorMessages.length - 10} kesalahan lainnya.` : "");
-             alert(`Impor dibatalkan karena ditemukan kesalahan pada data:\n\n${errorText}\n\nSilakan perbaiki file CSV Anda lalu coba lagi.`);
-             setIsImporting(false);
-             if (fileInputRef.current) fileInputRef.current.value = "";
-             return;
+          if (existingNomor.has(nomor_anggota)) {
+            errorMessages.push(`Baris ${rowNum}: Nomor Anggota '${nomor_anggota}' sudah terdaftar di sistem.`);
+            continue;
           }
 
-          if (validMembers.length === 0) {
-             alert("Tidak ada data yang valid untuk diimpor.");
-             setIsImporting(false);
-             if (fileInputRef.current) fileInputRef.current.value = "";
-             return;
+          if (currentCsvNomor.has(nomor_anggota)) {
+            errorMessages.push(`Baris ${rowNum}: Nomor Anggota '${nomor_anggota}' duplikat di dalam file excel.`);
+            continue;
           }
 
-          let importedCount = 0;
-          for (const memberData of validMembers) {
-            const docId = doc(collection(db, "members")).id;
-            await setDoc(doc(db, "members", docId), {
-              ...memberData,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            });
-            importedCount++;
+          currentCsvNomor.add(nomor_anggota);
+          
+          let formattedTanggalLahir = (row["Tanggal Lahir"] || "").toString().trim();
+          if (formattedTanggalLahir.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+            const [day, month, year] = formattedTanggalLahir.split('/');
+            formattedTanggalLahir = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
           }
-          addToast(`Impor data CSV berhasil! ${importedCount} jemaat telah ditambahkan.`, 'success');
-        } catch (error) {
-          console.error("Error importing:", error);
-          addToast("Terjadi kesalahan saat menyimpan data impor ke server.", 'error');
-        } finally {
-          setIsImporting(false);
-          if (fileInputRef.current) fileInputRef.current.value = "";
+
+          validMembers.push({
+            nomor_anggota,
+            nama_lengkap,
+            jenis_kelamin: (jenis_kelamin === "Pria" || jenis_kelamin === "Wanita") ? jenis_kelamin : "",
+            tempat_lahir: (row["Tempat Lahir"] || "").toString().trim(),
+            tanggal_lahir: formattedTanggalLahir,
+            no_telp: (row["No. Telp"] || "").toString().trim(),
+            alamat_asal: (row["Alamat Asal"] || "").toString().trim(),
+            jenis_baptis: (row["Jenis Baptis"] || "").toString().trim(),
+            keterangan_baptis: (row["Keterangan Baptis"] || "").toString().trim(),
+            tanggal_masuk: (row["Tanggal Masuk"] || "").toString().trim(),
+            tanggal_keluar: (row["Tanggal Keluar"] || "").toString().trim(),
+            foto_url: (row["Link Foto"] || "").toString().trim(),
+            tenantId: "gpstiaa"
+          });
         }
-      },
-      error: (error) => {
-        console.error("CSV Parse Error:", error);
-        addToast("Gagal mengurai dan membaca file CSV.", 'error');
+
+        if (errorMessages.length > 0) {
+           const errorText = errorMessages.slice(0, 10).join("\n") + (errorMessages.length > 10 ? `\n...dan ${errorMessages.length - 10} kesalahan lainnya.` : "");
+           alert(`Impor dibatalkan karena ditemukan kesalahan pada data:\n\n${errorText}\n\nSilakan perbaiki file Excel Anda lalu coba lagi.`);
+           setIsImporting(false);
+           if (fileInputRef.current) fileInputRef.current.value = "";
+           return;
+        }
+
+        if (validMembers.length === 0) {
+           alert("Tidak ada data yang valid untuk diimpor.");
+           setIsImporting(false);
+           if (fileInputRef.current) fileInputRef.current.value = "";
+           return;
+        }
+
+        let importedCount = 0;
+        for (const memberData of validMembers) {
+          const docId = doc(collection(db, "members")).id;
+          await setDoc(doc(db, "members", docId), {
+            ...memberData,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+          importedCount++;
+        }
+        addToast(`Impor data Excel berhasil! ${importedCount} jemaat telah ditambahkan.`, 'success');
+      } catch (error) {
+        console.error("Error importing:", error);
+        addToast("Terjadi kesalahan saat menyimpan data impor Excel ke server.", 'error');
+      } finally {
         setIsImporting(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
-    });
+    };
+    reader.readAsArrayBuffer(file);
   };
 
   const filteredMembers = useMemo(() => {
@@ -841,9 +871,9 @@ export default function Dashboard() {
 
               <input
                 type="file"
-                accept=".csv"
+                accept=".xlsx, .xls"
                 ref={fileInputRef}
-                onChange={handleImportCSV}
+                onChange={handleImportExcel}
                 className="hidden"
               />
               
@@ -1157,9 +1187,6 @@ export default function Dashboard() {
                         <option value={10}>10 baris</option>
                         <option value={50}>50 baris</option>
                         <option value={100}>100 baris</option>
-                        <option value={200}>200 baris</option>
-                        <option value={500}>500 baris</option>
-                        <option value={1000}>1000 baris</option>
                       </select>
                     </div>
                     
