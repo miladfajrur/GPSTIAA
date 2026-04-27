@@ -26,7 +26,8 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
     jenis_baptis: "",
     keterangan_baptis: "",
     tanggal_masuk: "",
-    tanggal_keluar: ""
+    tanggal_keluar: "",
+    foto_url: ""
   });
 
   const [rows, setRows] = useState(Array.from({ length: 10 }, createEmptyRow));
@@ -98,7 +99,7 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
           keterangan_baptis: row.keterangan_baptis.trim(),
           tanggal_masuk: row.tanggal_masuk,
           tanggal_keluar: row.tanggal_keluar,
-          foto_url: "",
+          foto_url: typeof row.foto_url === 'string' ? row.foto_url.trim() : "",
           tenantId: "gpstiaa",
         };
 
@@ -176,6 +177,7 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Ket Baptis</th>
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Tgl Masuk</th>
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Tgl Keluar</th>
+                <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Link Foto</th>
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700 text-center select-none w-12">Aksi</th>
               </tr>
             </thead>
@@ -251,6 +253,9 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
                       data-rowindex={index} 
                       className={`${inputClass} font-mono`} 
                     />
+                  </td>
+                  <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors">
+                    <input type="url" value={row.foto_url} onChange={(e) => handleChange(row._localId, 'foto_url', e.target.value)} onKeyDown={(e) => handleKeyDown(e, index, 'foto_url')} data-col="foto_url" data-rowindex={index} className={`${inputClass} min-w-[200px]`} placeholder="https://" />
                   </td>
                   <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent text-center transition-colors">
                     <button 

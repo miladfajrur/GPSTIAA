@@ -519,10 +519,16 @@ export default function Dashboard() {
           return (parseInt(aNo.split('/')[0]) || 0) - (parseInt(bNo.split('/')[0]) || 0);
         case "no_anggota_desc":
           return (parseInt(bNo.split('/')[0]) || 0) - (parseInt(aNo.split('/')[0]) || 0);
-        case "tgl_masuk_desc":
-          return new Date(b.tanggal_masuk || 0).getTime() - new Date(a.tanggal_masuk || 0).getTime();
-        case "tgl_masuk_asc":
-          return new Date(a.tanggal_masuk || 0).getTime() - new Date(b.tanggal_masuk || 0).getTime();
+        case "created_at_desc": {
+          const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0);
+          const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0);
+          return timeB - timeA;
+        }
+        case "created_at_asc": {
+          const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0);
+          const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0);
+          return timeA - timeB;
+        }
         default:
           return 0;
       }
@@ -897,8 +903,8 @@ export default function Dashboard() {
                         <option value="nama_desc">Urut Z-A</option>
                         <option value="no_anggota_asc">No. 1-9</option>
                         <option value="no_anggota_desc">No. 9-1</option>
-                        <option value="tgl_masuk_desc">Terbaru</option>
-                        <option value="tgl_masuk_asc">Terlama</option>
+                        <option value="created_at_desc">Terbaru</option>
+                        <option value="created_at_asc">Terlama</option>
                       </select>
                     </div>
                   </div>
@@ -1222,9 +1228,9 @@ export default function Dashboard() {
                            </div>
                            
                            <div className="flex justify-between items-start mb-4 relative z-10 gap-2 sm:gap-3 mt-4">
-                             <div className="flex-1 min-w-0 space-y-1 pr-6">
+                             <div className="flex-1 min-w-0 space-y-1 pr-16 sm:pr-20">
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-[14px] sm:text-[15px] md:text-base leading-snug break-words" title={formatNameTitleCase(m.nama_lengkap)}>
+                                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-[14px] sm:text-[15px] md:text-base leading-snug line-clamp-2 break-words" title={formatNameTitleCase(m.nama_lengkap)}>
                                     {formatNameTitleCase(m.nama_lengkap)}
                                   </h3>
                                   {user?.username !== 'fajrur1' && m.nomor_anggota && (
