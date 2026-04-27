@@ -912,7 +912,7 @@ export default function Dashboard() {
                 
                 <div className="overflow-auto flex-1 w-full relative">
                   <table className="w-full text-xs text-left border-collapse">
-                    <thead className="sticky top-0 bg-white dark:bg-slate-900 shadow-sm z-10 border-b border-slate-200 dark:border-slate-700">
+                    <thead className="sticky top-0 bg-white dark:bg-slate-900 shadow-sm z-20 border-b border-slate-200 dark:border-slate-700">
                       <tr className="text-slate-500 dark:text-slate-400 uppercase font-bold">
                         <th className="p-3">#</th>
                         <th className="p-3">No. Anggota</th>
@@ -1287,7 +1287,7 @@ export default function Dashboard() {
                   <div className="bg-white dark:bg-slate-800 m-0 sm:m-4 md:m-6 sm:rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col flex-1 min-h-0 shadow-sm relative overflow-hidden">
                     <div className="overflow-auto flex-1 h-full">
                       <table className="w-full text-left border-collapse text-sm whitespace-nowrap min-w-full">
-                        <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-10 shadow-sm">
+                        <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-20 shadow-sm">
                           <tr>
                             <th className="p-3 sm:p-4 font-semibold text-slate-600 dark:text-slate-300">Jemaat</th>
                             <th className="p-3 font-semibold text-slate-600 dark:text-slate-300">Tanggal Lahir</th>
