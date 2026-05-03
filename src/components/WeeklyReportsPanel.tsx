@@ -1,16 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import { collection, onSnapshot, query, setDoc, doc, deleteDoc, serverTimestamp, orderBy, where } from "firebase/firestore";
-import Papa from "papaparse";
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { Plus, Edit2, Trash2, Download, Printer, Upload } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, BarChart, Bar, Cell } from "recharts";
 import { db } from "../lib/firebase";
 import { WeeklyReport } from "../types";
 import WeeklyReportModal from "./WeeklyReportModal";
 import BulkReportModal from "./BulkReportModal";
+import DateInputMask from "./DateInputMask";
+import MonthYearInputMask from "./MonthYearInputMask";
 import { TableProperties } from "lucide-react";
+import * as XLSX from "xlsx";
 
 export default function WeeklyReportsPanel() {
   const [reports, setReports] = useState<WeeklyReport[]>([]);
@@ -23,7 +22,8 @@ export default function WeeklyReportsPanel() {
   const [selectedReport, setSelectedReport] = useState<WeeklyReport | undefined>(undefined);
   const [reportToDelete, setReportToDelete] = useState<string | null>(null);
 
-  const [dateFilterMode, setDateFilterMode] = useState<string>("Bulan Ini");
+  const [dateFilterMode, setDateFilterMode] = useState<string>("Bulan");
+  const [monthYearFilter, setMonthYearFilter] = useState<string>("");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
 
@@ -46,6 +46,15 @@ export default function WeeklyReportsPanel() {
     if (dateFilterMode === "Bulan Lalu") {
       const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       return reportDate.getMonth() === lastMonth.getMonth() && reportDate.getFullYear() === lastMonth.getFullYear();
+    }
+
+    if (dateFilterMode === "Bulan") {
+      if (!monthYearFilter) return true;
+      const parts = monthYearFilter.split('-');
+      if (parts.length === 2 && parts[0].length === 4) { // it sends back YYYY-MM
+        return reportDate.getMonth() + 1 === parseInt(parts[1], 10) && reportDate.getFullYear() === parseInt(parts[0], 10);
+      }
+      return false;
     }
 
     if (dateFilterMode === "Kustom") {
@@ -142,8 +151,6 @@ export default function WeeklyReportsPanel() {
       "Perpuluhan": 5000000,
       "Diakonia": 500000,
       "Pemasukan Lainnya": 0,
-      "Pengeluaran": 200000,
-      "Keterangan Pengeluaran": "Konsumsi petugas",
       "Keterangan": "Ibadah berjalan lancar"
     }];
     
@@ -186,8 +193,6 @@ export default function WeeklyReportsPanel() {
             perpuluhan: Number(row["Perpuluhan"]) || 0,
             diakonia: Number(row["Diakonia"]) || 0,
             pemasukan_lainnya: Number(row["Pemasukan Lainnya"]) || 0,
-            pengeluaran: Number(row["Pengeluaran"]) || 0,
-            keterangan_pengeluaran: (row["Keterangan Pengeluaran"] || "").toString(),
             keterangan: (row["Keterangan"] || "").toString(),
             tenantId: "gpstiaa",
             createdAt: serverTimestamp(),
@@ -221,8 +226,6 @@ export default function WeeklyReportsPanel() {
       "Diakonia": r.diakonia,
       "Pemasukan Lainnya": r.pemasukan_lainnya || 0,
       "Total Pemasukan": (r.persembahan_umum || 0) + (r.perpuluhan || 0) + (r.diakonia || 0) + (r.pemasukan_lainnya || 0),
-      "Total Pengeluaran": r.pengeluaran || 0,
-      "Keterangan Pengeluaran": r.keterangan_pengeluaran || "",
       "Keterangan": r.keterangan || ""
     }));
     
@@ -237,45 +240,75 @@ export default function WeeklyReportsPanel() {
   };
 
   const handleExportPDF = async () => {
-    const doc = new jsPDF("l", "pt", "a4"); // Landscape
-    
-    // Attempt to add logo using CORS proxy to bypass canvas tinting restrictions
-    const img = new Image();
-    img.crossOrigin = "Anonymous";
-    img.src = "https://corsproxy.io/?https%3A%2F%2Fi.ibb.co.com%2FXfg0zs6D%2FGPSTIAA-LOGO.png";
-    await new Promise<void>((resolve) => {
-      img.onload = () => {
-        try {
-          const canvas = document.createElement("canvas");
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext("2d");
-          if (ctx) {
-            ctx.drawImage(img, 0, 0);
-            const dataURL = canvas.toDataURL("image/png");
-            doc.addImage(dataURL, 'PNG', 40, 30, 45, 45); // Slightly larger
+    try {
+      const { jsPDF } = await import("jspdf");
+      const autoTableModule = await import("jspdf-autotable");
+      const autoTable = autoTableModule.default;
+
+      const doc = new jsPDF("l", "pt", "a4"); // Landscape
+      
+      // Attempt to add logo using CORS proxy to bypass canvas tinting restrictions
+    const img1 = new Image();
+    img1.crossOrigin = "Anonymous";
+    img1.src = "https://i.ibb.co.com/HTcTMCcr/GPSTIAA-LOGO-1.png";
+    const img2 = new Image();
+    img2.crossOrigin = "Anonymous";
+    img2.src = "https://i.ibb.co.com/zHfFFrd1/AA-2-1-2-1.png";
+
+    await Promise.all([
+      new Promise<void>((resolve) => {
+        img1.onload = () => {
+          try {
+            const canvas = document.createElement("canvas");
+            canvas.width = img1.width;
+            canvas.height = img1.height;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(img1, 0, 0);
+              const dataURL = canvas.toDataURL("image/png");
+              doc.addImage(dataURL, 'PNG', 40, 30, 45, 45);
+            }
+          } catch (e) {
+            console.error("Failed to add image1", e);
           }
-        } catch (e) {
-          console.error("Failed to add image due to CORS", e);
-        }
-        resolve();
-      };
-      img.onerror = () => resolve();
-    });
+          resolve();
+        };
+        img1.onerror = () => resolve();
+      }),
+      new Promise<void>((resolve) => {
+        img2.onload = () => {
+          try {
+            const canvas = document.createElement("canvas");
+            canvas.width = img2.width;
+            canvas.height = img2.height;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(img2, 0, 0);
+              const dataURL = canvas.toDataURL("image/png");
+              doc.addImage(dataURL, 'PNG', 95, 30, 45, 45); // placed next to it
+            }
+          } catch (e) {
+            console.error("Failed to add image2", e);
+          }
+          resolve();
+        };
+        img2.onerror = () => resolve();
+      })
+    ]);
 
     // Title
-    doc.setFontSize(22);
+    doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
-    doc.text(`Laporan Catatan Kebaktian & Keuangan Mingguan - GPSTIAA Siloam`, 95, 52);
+    doc.text(`Laporan Catatan Kebaktian & Keuangan Mingguan - GPSTTIAA`, 150, 52);
     
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
-    doc.text(`Periode Laporan: ${ibadahFilter}  |  Tanggal Cetak: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, 95, 70);
+    doc.text(`Periode Laporan: ${ibadahFilter}  |  Tanggal Cetak: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, 150, 70);
     doc.setTextColor(0, 0, 0);
     
     const tableColumns = [
-      "Tanggal", "Nama Ibadah", "D/P/A", "T. Hadir", "Persembahan", "Perpuluhan", "Diakonia", "Lainnya", "Pemasukan", "Pengeluaran"
+      "Tanggal", "Nama Ibadah", "D/P/A", "T. Hadir", "Persembahan", "Perpuluhan", "Diakonia", "Lainnya", "Total Pemasukan"
     ];
 
     const tableRows = filteredReports.map(r => {
@@ -294,8 +327,7 @@ export default function WeeklyReportsPanel() {
         formatRupiah(r.perpuluhan || 0),
         formatRupiah(r.diakonia || 0),
         formatRupiah(r.pemasukan_lainnya || 0),
-        formatRupiah(totalPemasukan),
-        formatRupiah(r.pengeluaran || 0)
+        formatRupiah(totalPemasukan)
       ];
     });
 
@@ -313,8 +345,7 @@ export default function WeeklyReportsPanel() {
         5: { halign: 'right' },
         6: { halign: 'right' },
         7: { halign: 'right' },
-        8: { halign: 'right', fontStyle: 'bold', textColor: [16, 185, 129] }, // emerald-500
-        9: { halign: 'right', fontStyle: 'bold', textColor: [239, 68, 68] } // red-500
+        8: { halign: 'right', fontStyle: 'bold', textColor: [16, 185, 129] } // emerald-500
       }
     });
 
@@ -322,8 +353,6 @@ export default function WeeklyReportsPanel() {
     
     // Prepare summary data
     const totalAllPemasukan = filteredReports.reduce((acc, r) => acc + (r.persembahan_umum || 0) + (r.perpuluhan || 0) + (r.diakonia || 0) + (r.pemasukan_lainnya || 0), 0);
-    const totalAllPengeluaran = filteredReports.reduce((acc, r) => acc + (r.pengeluaran || 0), 0);
-    const totalSaldo = totalAllPemasukan - totalAllPengeluaran;
 
     // Draw Summary box
     doc.setFillColor(248, 250, 252);
@@ -344,22 +373,11 @@ export default function WeeklyReportsPanel() {
     doc.setTextColor(16, 185, 129); // emerald-500
     doc.text(`${formatRupiah(totalAllPemasukan)}`, 250, finalY + 65);
 
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(50, 50, 50);
-    doc.text(`Total Keseluruhan Pengeluaran:`, 55, finalY + 85);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(239, 68, 68); // red-500
-    doc.text(`${formatRupiah(totalAllPengeluaran)}`, 250, finalY + 85);
-    
-    doc.line(55, finalY + 95, 420, finalY + 95);
-    
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(50, 50, 50);
-    doc.text(`SELISIH (SALDO AKHIR):`, 55, finalY + 110);
-    doc.setTextColor(totalSaldo >= 0 ? 37 : 239, totalSaldo >= 0 ? 99 : 68, totalSaldo >= 0 ? 235 : 68); // blue-600 or red-500
-    doc.text(`${formatRupiah(totalSaldo)}`, 250, finalY + 110);
-
     doc.save(`Laporan_Kebaktian_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (e) {
+      console.error(e);
+      alert("Gagal mengunduh laporan PDF.");
+    }
   };
 
   const chartData = [...filteredReports].reverse().map(r => ({
@@ -368,18 +386,13 @@ export default function WeeklyReportsPanel() {
     Pemuda: r.kehadiran_pemuda || 0,
     Anak: r.kehadiran_anak || 0,
     Total: (r.kehadiran_dewasa || 0) + (r.kehadiran_pemuda || 0) + (r.kehadiran_anak || 0),
-    TotalPemasukan: (r.persembahan_umum || 0) + (r.perpuluhan || 0) + (r.diakonia || 0) + (r.pemasukan_lainnya || 0),
-    TotalPengeluaran: r.pengeluaran || 0
+    TotalPemasukan: (r.persembahan_umum || 0) + (r.perpuluhan || 0) + (r.diakonia || 0) + (r.pemasukan_lainnya || 0)
   }));
 
   const totalAllPemasukan = filteredReports.reduce((acc, r) => acc + (r.persembahan_umum || 0) + (r.perpuluhan || 0) + (r.diakonia || 0) + (r.pemasukan_lainnya || 0), 0);
-  const totalAllPengeluaran = filteredReports.reduce((acc, r) => acc + (r.pengeluaran || 0), 0);
-  const totalSaldo = totalAllPemasukan - totalAllPengeluaran;
 
   const summaryChartData = [
-    { name: 'Pemasukan', value: totalAllPemasukan, fill: '#10B981' },
-    { name: 'Pengeluaran', value: totalAllPengeluaran, fill: '#EF4444' },
-    { name: 'Selisih', value: totalSaldo, fill: totalSaldo >= 0 ? '#3B82F6' : '#F59E0B' }
+    { name: 'Pemasukan', value: totalAllPemasukan, fill: '#10B981' }
   ];
 
   return (
@@ -488,7 +501,7 @@ export default function WeeklyReportsPanel() {
              </div>
              
              <div>
-               <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-4 uppercase tracking-wider">Grafik Keuangan (Pemasukan vs Pengeluaran)</h3>
+               <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-4 uppercase tracking-wider">Grafik Keuangan</h3>
                <div className="h-48 w-full">
                  <ResponsiveContainer width="100%" height="100%">
                    <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: -20 }}>
@@ -502,7 +515,6 @@ export default function WeeklyReportsPanel() {
                      />
                      <Legend wrapperStyle={{ fontSize: '11px' }} />
                      <Line type="monotone" name="Total Pemasukan" dataKey="TotalPemasukan" stroke="#10B981" strokeWidth={2} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} animationDuration={1500} animationEasing="ease-out" />
-                     <Line type="monotone" name="Total Pengeluaran" dataKey="TotalPengeluaran" stroke="#EF4444" strokeWidth={2} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} animationDuration={1500} animationEasing="ease-out" />
                    </LineChart>
                  </ResponsiveContainer>
                </div>
@@ -524,24 +536,37 @@ export default function WeeklyReportsPanel() {
                 <option value="Semua">Semua</option>
                 <option value="Bulan Ini">Bulan Ini</option>
                 <option value="Bulan Lalu">Bulan Lalu</option>
-                <option value="Kustom">Kustom</option>
+                <option value="Bulan">Pilih Bulan (MM-YYYY)</option>
+                <option value="Kustom">Kustom (DD-MM-YYYY)</option>
               </select>
             </div>
 
+            {dateFilterMode === "Bulan" && (
+              <div className="flex items-center gap-2">
+                <MonthYearInputMask
+                  className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500 w-28"
+                  value={monthYearFilter}
+                  onChange={(e) => setMonthYearFilter(e.target.value)}
+                />
+              </div>
+            )}
+
             {dateFilterMode === "Kustom" && (
               <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500"
+                <DateInputMask
+                  className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500 w-28"
                   value={startDate}
+                  name="startDate"
                   onChange={(e) => setStartDate(e.target.value)}
+                  placeholder="DD-MM-YYYY"
                 />
                 <span className="text-slate-500 dark:text-slate-400">-</span>
-                <input
-                  type="date"
-                  className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500"
+                <DateInputMask
+                  className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500 w-28"
                   value={endDate}
+                  name="endDate"
                   onChange={(e) => setEndDate(e.target.value)}
+                  placeholder="DD-MM-YYYY"
                 />
               </div>
             )}
@@ -565,14 +590,13 @@ export default function WeeklyReportsPanel() {
           </div>
         )}
 
-        <table className="w-full text-xs text-left border-collapse">
+        <table className="w-full text-xs text-left border-collapse whitespace-nowrap min-w-max">
           <thead className="sticky top-0 bg-slate-100 dark:bg-slate-700/50 shadow-sm z-10">
             <tr className="text-slate-500 dark:text-slate-300 uppercase font-bold border-b border-slate-200 dark:border-slate-700">
               <th className="p-3 whitespace-nowrap hidden sm:table-cell">Tanggal</th>
               <th className="p-3 border-r border-slate-200 dark:border-slate-700">Nama Ibadah</th>
               <th className="p-3 text-center border-r border-slate-200 dark:border-slate-700">Kehadiran<br/><span className="text-[10px] font-normal">(Dewasa/Pemuda/Anak)</span></th>
               <th className="p-3 whitespace-nowrap text-right">Pemasukan</th>
-              <th className="p-3 whitespace-nowrap text-right border-r border-slate-200 dark:border-slate-700 hidden xl:table-cell">Pengeluaran</th>
               <th className="p-3 text-right">Aksi</th>
             </tr>
           </thead>
@@ -589,7 +613,6 @@ export default function WeeklyReportsPanel() {
               filteredReports.map((report) => {
                 const totalKehadiran = (report.kehadiran_dewasa || 0) + (report.kehadiran_pemuda || 0) + (report.kehadiran_anak || 0);
                 const totalPemasukan = (report.persembahan_umum || 0) + (report.perpuluhan || 0) + (report.diakonia || 0) + (report.pemasukan_lainnya || 0);
-                const totalPengeluaran = report.pengeluaran || 0;
                 
                 return (
                   <tr key={report.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 group">
@@ -597,7 +620,7 @@ export default function WeeklyReportsPanel() {
                     <td className="p-3 font-semibold text-blue-700 dark:text-blue-400 border-r border-slate-100 dark:border-slate-700/50">
                       <div className="sm:hidden text-[10px] font-normal text-slate-500 mb-1">{formatDate(report.tanggal_ibadah)}</div>
                       {report.nama_ibadah}
-                      {(report.keterangan || report.keterangan_pengeluaran) && <div className="text-[10px] font-normal text-slate-500 dark:text-slate-400 truncate max-w-[200px] mt-1">{report.keterangan} {report.keterangan_pengeluaran ? `(Pengeluaran: ${report.keterangan_pengeluaran})` : ''}</div>}
+                      {(report.keterangan) && <div className="text-[10px] font-normal text-slate-500 dark:text-slate-400 truncate max-w-[200px] mt-1">{report.keterangan}</div>}
                     </td>
                     <td className="p-3 text-center border-r border-slate-100 dark:border-slate-700/50">
                       <div className="font-bold text-sm">{totalKehadiran}</div>
@@ -608,7 +631,6 @@ export default function WeeklyReportsPanel() {
                       </div>
                     </td>
                     <td className="p-3 text-right whitespace-nowrap font-mono font-bold text-emerald-600 dark:text-emerald-400">{formatRupiah(totalPemasukan)}</td>
-                    <td className="p-3 text-right whitespace-nowrap font-mono font-bold text-red-500 border-r border-slate-100 dark:border-slate-700/50 hidden xl:table-cell">{formatRupiah(totalPengeluaran)}</td>
                     <td className="p-3 text-right">
                       <button
                         onClick={() => {
@@ -638,22 +660,10 @@ export default function WeeklyReportsPanel() {
               <tr>
                 <td colSpan={3} className="p-3 text-right border-r border-slate-200 dark:border-slate-600">
                   <div className="text-slate-600 dark:text-slate-300">TOTAL PEMASUKAN:</div>
-                  <div className="text-slate-600 dark:text-slate-300 xl:hidden">TOTAL PENGELUARAN:</div>
-                  <div className="text-slate-600 dark:text-slate-300 xl:hidden mt-2 pt-2 border-t border-slate-200 dark:border-slate-600">SELISIH (SALDO):</div>
                 </td>
                 <td className="p-3 text-right bg-emerald-50/50 dark:bg-emerald-900/10">
                   <div className="font-mono text-emerald-600 dark:text-emerald-400">{formatRupiah(totalAllPemasukan)}</div>
-                  <div className="font-mono text-red-500 xl:hidden">{formatRupiah(totalAllPengeluaran)}</div>
-                  <div className={`font-mono text-lg xl:hidden mt-2 pt-2 border-t border-slate-200 dark:border-slate-600 ${totalSaldo >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>{formatRupiah(totalSaldo)}</div>
                 </td>
-                <td className="p-3 text-right border-r border-slate-200 dark:border-slate-600 bg-red-50/50 dark:bg-red-900/10 hidden xl:table-cell">
-                  <div className="font-mono text-red-500">{formatRupiah(totalAllPengeluaran)}</div>
-                </td>
-                <td className="p-3"></td>
-              </tr>
-              <tr className="hidden xl:table-row bg-slate-100/50 dark:bg-slate-800/50">
-                <td colSpan={3} className="p-3 text-right border-r border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">SELISIH KESELURUHAN:</td>
-                <td colSpan={2} className={`p-3 text-center sm:text-right font-mono text-xl border-r border-slate-200 dark:border-slate-600 ${totalSaldo >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>{formatRupiah(totalSaldo)}</td>
                 <td className="p-3"></td>
               </tr>
             </tfoot>
@@ -665,18 +675,10 @@ export default function WeeklyReportsPanel() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center max-w-5xl mx-auto">
               <div className="space-y-4">
                 <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 uppercase tracking-wider mb-2">Ringkasan Total</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-1 gap-4">
                   <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl shadow-sm">
-                    <div className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Total Pemasukan</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Total Pemasukan Keseluruhan</div>
                     <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">{formatRupiah(totalAllPemasukan)}</div>
-                  </div>
-                  <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl shadow-sm">
-                    <div className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Total Pengeluaran</div>
-                    <div className="text-xl font-bold font-mono text-red-500">{formatRupiah(totalAllPengeluaran)}</div>
-                  </div>
-                  <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl shadow-sm sm:col-span-2">
-                    <div className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Selisih (Saldo)</div>
-                    <div className={`text-2xl font-bold font-mono ${totalSaldo >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>{formatRupiah(totalSaldo)}</div>
                   </div>
                 </div>
               </div>

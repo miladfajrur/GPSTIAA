@@ -5,6 +5,7 @@ import { db } from '../lib/firebase';
 import { Member } from '../types';
 import { formatNameTitleCase } from '../lib/utils';
 import DateInputMask from './DateInputMask';
+import { PROVINCES } from '../lib/constants';
 
 interface BulkEntryModalProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
     tanggal_lahir: "",
     no_telp: "",
     alamat_asal: "",
+    provinsi: "",
     jenis_baptis: "",
     keterangan_baptis: "",
     tanggal_masuk: "",
@@ -67,6 +69,53 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
     }
   };
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLTableSectionElement>) => {
+    const text = e.clipboardData.getData('text');
+    if (!text || (!text.includes('\t') && !text.includes('\n'))) return;
+    
+    const target = e.target as HTMLElement;
+    const rowIndexStr = target.getAttribute('data-rowindex');
+    const colName = target.getAttribute('data-col');
+    
+    if (rowIndexStr == null || colName == null) return;
+    
+    e.preventDefault();
+    
+    const startRowIndex = parseInt(rowIndexStr, 10);
+    const colNames = ['no_urut', 'tahun', 'nama_lengkap', 'jenis_kelamin', 'tempat_lahir', 'tanggal_lahir', 'alamat_asal', 'provinsi', 'no_telp', 'jenis_baptis', 'keterangan_baptis', 'tanggal_masuk', 'tanggal_keluar', 'foto_url'];
+    const startColIndex = colNames.indexOf(colName);
+    
+    if (startColIndex === -1) return;
+
+    const parsedRows = text.split(/\r?\n/).filter(line => line !== '').map(line => line.split('\t'));
+    
+    setRows(prevRows => {
+      const newRows = [...prevRows];
+      
+      parsedRows.forEach((parsedRow, i) => {
+        const targetRowIndex = startRowIndex + i;
+        
+        while (targetRowIndex >= newRows.length) {
+          newRows.push(createEmptyRow());
+        }
+        
+        const rowToUpdate = { ...newRows[targetRowIndex] };
+        
+        parsedRow.forEach((cellValue, j) => {
+          const targetColIndex = startColIndex + j;
+          if (targetColIndex < colNames.length) {
+            const field = colNames[targetColIndex];
+            (rowToUpdate as any)[field] = cellValue.trim();
+          }
+        });
+        
+        newRows[targetRowIndex] = rowToUpdate;
+      });
+      
+      return newRows;
+    });
+  };
+
   const handleSave = async () => {
     // Filter only rows that have at least a Name
     const validRows = rows.filter(r => r.nama_lengkap.trim() !== "");
@@ -95,6 +144,7 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
           tanggal_lahir: row.tanggal_lahir,
           no_telp: row.no_telp.trim(),
           alamat_asal: row.alamat_asal.trim(),
+          provinsi: row.provinsi?.trim() || "",
           jenis_baptis: row.jenis_baptis,
           keterangan_baptis: row.keterangan_baptis.trim(),
           tanggal_masuk: row.tanggal_masuk,
@@ -136,8 +186,9 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
             <TableProperties className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Input Massal (Grid)</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Isi baris layaknya spreadsheet Microsoft Excel. Tekan <strong>Tab</strong> untuk ke kanan, <strong>Enter</strong> untuk turun. Baris kosong akan diabaikan.</p>
+            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Input Massal (Grid/Excel)</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Isi baris layaknya spreadsheet. Tekan <strong>Tab</strong> untuk ke kanan, <strong>Enter</strong> untuk turun.</p>
+            <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mt-1 bg-blue-50 dark:bg-blue-900/30 inline-block px-2 py-0.5 rounded">💡 Tips: Anda dapat <strong>Copy-Paste langsung dari Excel</strong>. Klik pada sel pertama (No Urut) lalu tekan Ctrl+V / Cmd+V.</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -172,6 +223,7 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Tempat Lahir</th>
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Tgl Lahir</th>
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700 min-w-[250px]">Alamat Asal</th>
+                <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700 min-w-[150px]">Provinsi</th>
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">No Telp</th>
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Jenis Baptis</th>
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Ket Baptis</th>
@@ -181,7 +233,7 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700 text-center select-none w-12">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60" onPaste={handlePaste}>
               {rows.map((row, index) => (
                 <tr key={row._localId} className="hover:bg-blue-50/50 dark:hover:bg-slate-800/80 group">
                   <td className="px-3 py-1 text-xs text-slate-400 text-center font-mono sticky left-0 bg-white dark:bg-slate-800 group-hover:bg-blue-50/50 dark:group-hover:bg-slate-800/80 z-10 transition-colors">{index + 1}</td>
@@ -217,6 +269,9 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
                   </td>
                   <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors">
                     <input type="text" value={row.alamat_asal} onChange={(e) => handleChange(row._localId, 'alamat_asal', e.target.value)} onKeyDown={(e) => handleKeyDown(e, index, 'alamat_asal')} data-col="alamat_asal" data-rowindex={index} className={`${inputClass} min-w-[250px]`} placeholder="Alamat lengkap" />
+                  </td>
+                  <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors">
+                    <input type="text" list="provinsi-bulk-list" value={row.provinsi} onChange={(e) => handleChange(row._localId, 'provinsi', e.target.value)} onKeyDown={(e) => handleKeyDown(e, index, 'provinsi')} data-col="provinsi" data-rowindex={index} className={`${inputClass} min-w-[150px]`} placeholder="Provinsi" />
                   </td>
                   <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors">
                     <input type="tel" value={row.no_telp} onChange={(e) => handleChange(row._localId, 'no_telp', e.target.value)} onKeyDown={(e) => handleKeyDown(e, index, 'no_telp')} data-col="no_telp" data-rowindex={index} className={`${inputClass} font-mono`} placeholder="08..." />
@@ -269,6 +324,11 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
               ))}
             </tbody>
           </table>
+          <datalist id="provinsi-bulk-list">
+            {PROVINCES.map((prov) => (
+              <option key={prov} value={prov} />
+            ))}
+          </datalist>
         </div>
 
         {/* Bottom Actions */}

@@ -1,23 +1,23 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useDeferredValue } from "react";
 import { collection, onSnapshot, query, setDoc, doc, deleteDoc, serverTimestamp, orderBy, where, getCountFromServer } from "firebase/firestore";
-import Papa from "papaparse";
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import { ArrowLeft, Download, Plus, Search, LogOut, Edit2, Trash2, Filter, Users, PieChart as PieChartIcon, MapPin, Settings, Upload, Menu, UserCheck, CheckCircle, AlertCircle, Info, X, ChevronDown, MoreVertical, Gift, Bell, Eye, TableProperties, LayoutGrid, List, Sun, Moon } from "lucide-react";
+import { ArrowLeft, Download, Plus, Search, LogOut, Edit2, Trash2, Filter, Users, PieChart as PieChartIcon, MapPin, Settings, Upload, Menu, UserCheck, CheckCircle, AlertCircle, Info, X, ChevronDown, MoreVertical, Gift, Bell, Eye, TableProperties, LayoutGrid, List, Sun, Moon, Camera, Folder, BookOpen, Globe, RefreshCw } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 import { db } from "../lib/firebase";
 import { useAuth } from "../AuthContext";
 import { useTheme } from "../ThemeContext";
 import { Member } from "../types";
-import { formatNameTitleCase, formatDateDDMMYYYY, getDirectDriveLink, getDaysToBirthday } from "../lib/utils";
+import { formatNameTitleCase, formatDateDDMMYYYY, getDirectDriveLink, getDaysToBirthday, isBirthdayInWeek } from "../lib/utils";
 
 import MemberModal from "./MemberModal";
 import MemberViewModal from "./MemberViewModal";
 import BulkEntryModal from "./BulkEntryModal";
 import WeeklyReportsPanel from "./WeeklyReportsPanel";
 import MemberProfile from "./MemberProfile";
+import MediaRepoPanel from "./MediaRepoPanel";
+import DocumentPanel from "./DocumentPanel";
+import WorshipThemePanel from "./WorshipThemePanel";
+import MisiKaltaraPanel from "./MisiKaltaraPanel";
 
 export type ToastMessage = {
   id: number;
@@ -58,16 +58,27 @@ export default function Dashboard() {
   const [birthdayView, setBirthdayView] = useState<'grid' | 'list'>('grid');
   const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
   const [selectedMapArea, setSelectedMapArea] = useState<string | null>(null);
+  const [mapSortBy, setMapSortBy] = useState<'abjad' | 'jumlah'>('jumlah');
+  const [mapStatusFilter, setMapStatusFilter] = useState<'semua' | 'aktif' | 'keluar'>('aktif');
+  const [mapSearchQuery, setMapSearchQuery] = useState('');
 
-  const [ketuaJemaat, setKetuaJemaat] = useState(() => {
-    return localStorage.getItem('ketuaJemaat') || 'Pdt. R.H. Siregar, M.Th';
-  });
+  const ketuaJemaat = "Pdt. Dr. Rei Rubin Barlian, M.Th.";
 
   // Notification State
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
   // Profile View State
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    addToast("Menyinkronkan data dengan server...", "info");
+    // Simulate a brief wait as Firebase automatically syncs, to give user feedback
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setIsSyncing(false);
+    addToast("Data berhasil disinkronisasi", "success");
+  };
   const canViewProfile = ['anabk', 'fajrur'].includes(user?.username || '');
 
   // Import state
@@ -83,16 +94,18 @@ export default function Dashboard() {
   const [baptisFilter, setBaptisFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("Aktif"); // Default to "Aktif"
   const [birthdayStatusFilter, setBirthdayStatusFilter] = useState("Aktif"); // Default to "Aktif" for Birthdays
-  const [birthdaySubTab, setBirthdaySubTab] = useState<'terdekat' | 'bulanIni'>('terdekat');
+  const [birthdaySubTab, setBirthdaySubTab] = useState<'terdekat' | 'bulanIni' | 'mingguIni' | 'mingguLalu' | 'kustom'>('terdekat');
+  const [birthdayCustomMonth, setBirthdayCustomMonth] = useState<number>(new Date().getMonth() + 1);
   const [sortBy, setSortBy] = useState("nama_asc");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const deferredSearchTerm = useDeferredValue(searchTerm);
   
   const hasNotifiedBirthdays = useRef(false);
 
   useEffect(() => {
     if (members.length > 0 && !hasNotifiedBirthdays.current && !isLoading) {
-      const todayBirthdays = members.filter(m => getDaysToBirthday(m.tanggal_lahir) === 0);
+      const todayBirthdays = members.filter(m => !m.tanggal_keluar && getDaysToBirthday(m.tanggal_lahir) === 0);
       if (todayBirthdays.length > 0) {
         const names = todayBirthdays.map(m => formatNameTitleCase(m.nama_lengkap)).join(', ');
         addToast(`🎉 Hari ini ulang tahun: ${names}!\nSelamat Ulang Tahun!`, 'info');
@@ -340,60 +353,100 @@ export default function Dashboard() {
     }
   };
 
-  const handleExportExcel = () => {
-    const excelData = members.map((m, index) => ({
-      "No": index + 1,
-      "Nomor Anggota": m.nomor_anggota,
-      "Nama Lengkap": m.nama_lengkap,
-      "Jenis Kelamin": m.jenis_kelamin,
-      "Tempat Lahir": m.tempat_lahir,
-      "Tanggal Lahir": m.tanggal_lahir,
-      "No. Telp": m.no_telp || "-",
-      "Alamat Asal": m.alamat_asal,
-      "Jenis Baptis": m.jenis_baptis,
-      "Keterangan Baptis": m.keterangan_baptis,
-      "Tanggal Masuk": m.tanggal_masuk,
-      "Tanggal Keluar": m.tanggal_keluar,
-      "Link Foto": m.foto_url
-    }));
+  const handleExportExcel = async () => {
+    try {
+      addToast("Menyiapkan file Excel...", 'info');
+      const XLSX = await import("xlsx");
+      const excelData = members.map((m, index) => ({
+        "No": index + 1,
+        "Nomor Anggota": m.nomor_anggota,
+        "Nama Lengkap": m.nama_lengkap,
+        "Jenis Kelamin": m.jenis_kelamin,
+        "Tempat Lahir": m.tempat_lahir,
+        "Tanggal Lahir": m.tanggal_lahir,
+        "No. Telp": m.no_telp || "-",
+        "Alamat Asal": m.alamat_asal,
+        "Provinsi": m.provinsi || "-",
+        "Jenis Baptis": m.jenis_baptis,
+        "Keterangan Baptis": m.keterangan_baptis,
+        "Tanggal Masuk": m.tanggal_masuk,
+        "Tanggal Atestasi": m.tanggal_keluar,
+        "Link Foto": m.foto_url
+      }));
 
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Data_Jemaat");
-    XLSX.writeFile(workbook, "Buku_Induk_GPSTIAA.xlsx");
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Data_Jemaat");
+      XLSX.writeFile(workbook, "Buku_Induk_GPSTIAA.xlsx");
+      addToast("Berhasil mengunduh Excel.", 'success');
+    } catch(e) {
+      console.error(e);
+      addToast("Gagal mengunduh Excel.", 'error');
+    }
   };
 
   const handleExportPDF = async () => {
-    const doc = new jsPDF("l", "pt", "a4"); // Landscape
-    
-    // Attempt to add logo using CORS proxy to bypass canvas tinting restrictions
-    const img = new Image();
-    img.crossOrigin = "Anonymous";
-    img.src = "https://corsproxy.io/?https%3A%2F%2Fi.ibb.co.com%2FXfg0zs6D%2FGPSTIAA-LOGO.png"; // Use proxy
-    await new Promise<void>((resolve) => {
-      img.onload = () => {
-        try {
-          const canvas = document.createElement("canvas");
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext("2d");
-          if (ctx) {
-            ctx.drawImage(img, 0, 0);
-            const dataURL = canvas.toDataURL("image/png");
-            doc.addImage(dataURL, 'PNG', 40, 30, 45, 45); // Slightly larger
+    try {
+      addToast("Menyiapkan file PDF...", 'info');
+      const { jsPDF } = await import("jspdf");
+      const autoTableModule = await import("jspdf-autotable");
+      const autoTable = autoTableModule.default;
+      
+      const doc = new jsPDF("l", "pt", "a4"); // Landscape
+      
+      // Attempt to add logo using CORS proxy to bypass canvas tinting restrictions
+    const img1 = new Image();
+    img1.crossOrigin = "Anonymous";
+    img1.src = "https://i.ibb.co.com/HTcTMCcr/GPSTIAA-LOGO-1.png"; // Use proxy
+    const img2 = new Image();
+    img2.crossOrigin = "Anonymous";
+    img2.src = "https://i.ibb.co.com/zHfFFrd1/AA-2-1-2-1.png"; // Use proxy
+
+    await Promise.all([
+      new Promise<void>((resolve) => {
+        img1.onload = () => {
+          try {
+            const canvas = document.createElement("canvas");
+            canvas.width = img1.width;
+            canvas.height = img1.height;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(img1, 0, 0);
+              const dataURL = canvas.toDataURL("image/png");
+              doc.addImage(dataURL, 'PNG', 40, 30, 45, 45); // Slightly larger
+            }
+          } catch (e) {
+            console.error("Failed to add image due to CORS", e);
           }
-        } catch (e) {
-          console.error("Failed to add image due to CORS", e);
-        }
-        resolve();
-      };
-      img.onerror = () => resolve();
-    });
+          resolve();
+        };
+        img1.onerror = () => resolve();
+      }),
+      new Promise<void>((resolve) => {
+        img2.onload = () => {
+          try {
+            const canvas = document.createElement("canvas");
+            canvas.width = img2.width;
+            canvas.height = img2.height;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(img2, 0, 0);
+              const dataURL = canvas.toDataURL("image/png");
+              doc.addImage(dataURL, 'PNG', 95, 30, 45, 45);
+            }
+          } catch (e) {
+            console.error("Failed to add image due to CORS", e);
+          }
+          resolve();
+        };
+        img2.onerror = () => resolve();
+      })
+    ]);
     
     // Titling
     doc.setFontSize(22);
     doc.setFont("helvetica", "bold");
-    doc.text("Laporan Induk Data Jemaat GPSTIAA Siloam", 95, 52); // Improved title
+    doc.text("Laporan Induk Data Jemaat GPSTTIAA", 95, 52); // Improved title
     
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
@@ -401,7 +454,7 @@ export default function Dashboard() {
     doc.text(`Total Keseluruhan Jemaat: ${members.length} Jiwa  |  Tanggal Unduh: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, 95, 70);
     doc.setTextColor(0, 0, 0);
 
-    const tableColumns = ["No", "No. Anggota", "Nama Lengkap", "L/P", "Tempat, Tanggal Lahir", "No. Telp", "Alamat Asal", "Jenis Baptis", "Tgl Masuk", "Tgl Keluar"];
+    const tableColumns = ["No", "No. Anggota", "Nama Lengkap", "L/P", "Tempat, Tanggal Lahir", "No. Telp", "Alamat Asal", "Provinsi", "Jenis Baptis", "Tgl Masuk", "Tgl Atestasi"];
     const tableRows = members.map((m, index) => [
       index + 1,
       m.nomor_anggota || "-",
@@ -410,6 +463,7 @@ export default function Dashboard() {
       `${m.tempat_lahir || "-"}, ${m.tanggal_lahir || "-"}`,
       m.no_telp || "-",
       m.alamat_asal || "-",
+      m.provinsi || "-",
       m.jenis_baptis || "-",
       m.tanggal_masuk || "-",
       m.tanggal_keluar || "-"
@@ -426,10 +480,18 @@ export default function Dashboard() {
     });
 
     doc.save("Laporan_Induk_Jemaat_GPSTIAA.pdf");
+    addToast("Berhasil mengunduh PDF.", 'success');
+    } catch(e) {
+      console.error(e);
+      addToast("Gagal mengunduh PDF.", 'error');
+    }
   };
 
-  const handleDownloadTemplate = () => {
-    const templateData = [{
+  const handleDownloadTemplate = async () => {
+    try {
+      addToast("Menyiapkan template...", 'info');
+      const XLSX = await import("xlsx");
+      const templateData = [{
       "Nomor Anggota": "1",
       "Nama Lengkap": "Nama Contoh",
       "Jenis Kelamin": "Pria",
@@ -437,10 +499,11 @@ export default function Dashboard() {
       "Tanggal Lahir": "1990-01-01",
       "No. Telp": "081234567890",
       "Alamat Asal": "Jl. Contoh Alamat No. 123",
+      "Provinsi": "Kalimantan Utara",
       "Jenis Baptis": "Baptis Dewasa",
       "Keterangan Baptis": "Contoh keterangan (bisa dikosongkan)",
       "Tanggal Masuk": "2023-01-01",
-      "Tanggal Keluar": "",
+      "Tanggal Atestasi": "",
       "Link Foto": ""
     }];
     
@@ -448,6 +511,11 @@ export default function Dashboard() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
     XLSX.writeFile(workbook, "Template_Impor_Jemaat.xlsx");
+    addToast("Berhasil mengunduh template.", 'success');
+  } catch(e) {
+    console.error(e);
+    addToast("Gagal mengunduh template.", 'error');
+  }
   };
 
   const handleImportExcel = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -458,6 +526,7 @@ export default function Dashboard() {
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
+        const XLSX = await import("xlsx");
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
@@ -508,10 +577,11 @@ export default function Dashboard() {
             tanggal_lahir: formattedTanggalLahir,
             no_telp: (row["No. Telp"] || "").toString().trim(),
             alamat_asal: (row["Alamat Asal"] || "").toString().trim(),
+            provinsi: (row["Provinsi"] || "").toString().trim(),
             jenis_baptis: (row["Jenis Baptis"] || "").toString().trim(),
             keterangan_baptis: (row["Keterangan Baptis"] || "").toString().trim(),
             tanggal_masuk: (row["Tanggal Masuk"] || "").toString().trim(),
-            tanggal_keluar: (row["Tanggal Keluar"] || "").toString().trim(),
+            tanggal_keluar: (row["Tanggal Atestasi"] || row["Tanggal Keluar"] || "").toString().trim(),
             foto_url: (row["Link Foto"] || "").toString().trim(),
             tenantId: "gpstiaa"
           });
@@ -556,7 +626,7 @@ export default function Dashboard() {
 
   const filteredMembers = useMemo(() => {
     return members.filter(m => {
-      const term = searchTerm.toLowerCase();
+      const term = deferredSearchTerm.toLowerCase();
       const noTelpSafe = m.no_telp || "";
       const alamatSafe = m.alamat_asal || "";
       const noAnggotaSafe = m.nomor_anggota || "";
@@ -599,7 +669,7 @@ export default function Dashboard() {
           return 0;
       }
     });
-  }, [members, searchTerm, genderFilter, baptisFilter, statusFilter, sortBy]);
+  }, [members, deferredSearchTerm, genderFilter, baptisFilter, statusFilter, sortBy]);
 
   const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
   const paginatedMembers = useMemo(() => {
@@ -615,27 +685,87 @@ export default function Dashboard() {
     return members
       .filter(m => birthdayStatusFilter === 'Aktif' ? !m.tanggal_keluar : birthdayStatusFilter === 'Keluar' ? !!m.tanggal_keluar : true)
       .filter(m => {
+        if (!m.tanggal_lahir) return false;
         if (birthdaySubTab === 'bulanIni') {
-          if (!m.tanggal_lahir) return false;
           const splitDate = m.tanggal_lahir.split('-');
           if (splitDate.length !== 3) return false;
           const bornMonth = parseInt(splitDate[1], 10);
           const currMonth = new Date().getMonth() + 1;
           return bornMonth === currMonth;
         }
+        if (birthdaySubTab === 'mingguIni') {
+          return isBirthdayInWeek(m.tanggal_lahir, 0);
+        }
+        if (birthdaySubTab === 'mingguLalu') {
+          return isBirthdayInWeek(m.tanggal_lahir, -1);
+        }
+        if (birthdaySubTab === 'kustom') {
+          const splitDate = m.tanggal_lahir.split('-');
+          if (splitDate.length !== 3) return false;
+          const bornMonth = parseInt(splitDate[1], 10);
+          return bornMonth === birthdayCustomMonth;
+        }
         return true;
       })
       .map(m => ({ ...m, daysLeft: getDaysToBirthday(m.tanggal_lahir) }))
       .filter(m => m.daysLeft !== null)
       .sort((a, b) => {
-        if (birthdaySubTab === 'bulanIni') {
+        if (birthdaySubTab === 'bulanIni' || birthdaySubTab === 'kustom') {
           const aDay = parseInt(a.tanggal_lahir.split('-')[2] || '0', 10);
           const bDay = parseInt(b.tanggal_lahir.split('-')[2] || '0', 10);
           return aDay - bDay;
         }
+        if (birthdaySubTab === 'mingguIni' || birthdaySubTab === 'mingguLalu') {
+           const aDateObj = new Date(a.tanggal_lahir);
+           const bDateObj = new Date(b.tanggal_lahir);
+           const aMonth = aDateObj.getMonth();
+           const bMonth = bDateObj.getMonth();
+           if (aMonth !== bMonth) return aMonth - bMonth;
+           return aDateObj.getDate() - bDateObj.getDate();
+        }
         return (a.daysLeft as number) - (b.daysLeft as number);
       });
-  }, [members, birthdayStatusFilter, birthdaySubTab]);
+  }, [members, birthdayStatusFilter, birthdaySubTab, birthdayCustomMonth]);
+
+  const mapData = useMemo(() => {
+    let mapMembers = members;
+    if (mapStatusFilter === 'aktif') {
+      mapMembers = mapMembers.filter(m => !m.tanggal_keluar);
+    } else if (mapStatusFilter === 'keluar') {
+      mapMembers = mapMembers.filter(m => !!m.tanggal_keluar);
+    }
+    
+    if (mapSearchQuery.trim()) {
+      const query = mapSearchQuery.toLowerCase();
+      mapMembers = mapMembers.filter(m => m.provinsi && m.provinsi.toLowerCase().includes(query));
+    }
+    
+    const countMap = mapMembers.reduce((acc, m) => {
+      if (m.provinsi && m.provinsi.trim() !== '') {
+        const groupName = m.provinsi.trim();
+        acc[groupName] = (acc[groupName] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+    
+    const entries = Object.entries(countMap);
+    if (mapSortBy === 'abjad') {
+      entries.sort((a, b) => a[0].localeCompare(b[0]));
+    } else {
+      entries.sort((a, b) => (b[1] as number) - (a[1] as number));
+    }
+    return entries;
+  }, [members, mapStatusFilter, mapSearchQuery, mapSortBy]);
+
+  const selectedMapAreaMembers = useMemo(() => {
+    if (!selectedMapArea) return [];
+    return members.filter(m => {
+      if (!m.provinsi || m.provinsi.trim() === '' || m.provinsi !== selectedMapArea) return false;
+      if (mapStatusFilter === 'aktif' && m.tanggal_keluar) return false;
+      if (mapStatusFilter === 'keluar' && !m.tanggal_keluar) return false;
+      return true;
+    });
+  }, [members, selectedMapArea, mapStatusFilter]);
 
   useEffect(() => {
     if (user?.username === 'BEM') {
@@ -698,6 +828,37 @@ export default function Dashboard() {
         {activeTab === 'map' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <MapPin className="w-4 h-4" />}
         Pemetaan Jemaat
       </button>
+      <div className="w-full h-px bg-white/10 my-1"></div>
+      <button 
+        onClick={() => handleTabClick("mediarepo")}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'mediarepo' ? 'bg-white/10 text-white font-medium opacity-100' : 'opacity-60 hover:opacity-100'}`}
+      >
+        {activeTab === 'mediarepo' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <Camera className="w-4 h-4" />}
+        Galeri Multimedia
+      </button>
+      <button 
+        onClick={() => handleTabClick("documents")}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'documents' ? 'bg-white/10 text-white font-medium opacity-100' : 'opacity-60 hover:opacity-100'}`}
+      >
+        {activeTab === 'documents' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <Folder className="w-4 h-4" />}
+        Arsip Dokumen
+      </button>
+      <button 
+        onClick={() => handleTabClick("worship")}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'worship' ? 'bg-white/10 text-white font-medium opacity-100' : 'opacity-60 hover:opacity-100'}`}
+      >
+        {activeTab === 'worship' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <BookOpen className="w-4 h-4" />}
+        Tema Ibadah
+      </button>
+      <button 
+        onClick={() => handleTabClick("misikaltara")}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'misikaltara' ? 'bg-white/10 text-white font-medium opacity-100' : 'opacity-60 hover:opacity-100'}`}
+      >
+        {activeTab === 'misikaltara' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <Globe className="w-4 h-4" />}
+        Misi Kaltara
+      </button>
+      <div className="w-full h-px bg-white/10 my-1"></div>
+      
       <button 
         onClick={() => handleTabClick("settings")}
         className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'settings' ? 'bg-white/10 text-white font-medium opacity-100' : 'opacity-60 hover:opacity-100'}`}
@@ -723,12 +884,15 @@ export default function Dashboard() {
       <aside className={`fixed md:relative z-50 bg-slate-900 dark:bg-slate-950 text-white flex-shrink-0 h-full transition-all duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0 w-64" : "-translate-x-full md:translate-x-0 w-64 md:w-0"} md:overflow-hidden`}>
         <div className="w-64 p-6 h-full flex flex-col">
           <div className="flex items-center gap-3 mb-10">
-            <div className="bg-white p-1 rounded-md">
-              <img src="https://i.ibb.co.com/Xfg0zs6D/GPSTIAA-LOGO.png" alt="GPSTIAA" className="h-10 w-10" />
+            <div className="flex gap-1 items-center">
+              <div className="h-10 w-10 bg-white rounded-full flex items-center justify-center overflow-hidden shrink-0 border border-slate-200 dark:border-slate-700">
+                <img src="https://i.ibb.co.com/HTcTMCcr/GPSTIAA-LOGO-1.png" alt="GPSTIAA" className="h-full w-full object-cover" />
+              </div>
+              <img src="https://i.ibb.co.com/zHfFFrd1/AA-2-1-2-1.png" alt="STTIAA" className="h-10 w-auto" />
             </div>
             <div>
               <h1 className="text-xs font-bold leading-tight opacity-70 uppercase tracking-widest">Buku Induk</h1>
-              <p className="text-sm font-semibold">GPSTIAA Siloam</p>
+              <p className="text-sm font-semibold">GPSTTIAA</p>
             </div>
             {/* Mobile close button */}
             <button 
@@ -784,6 +948,10 @@ export default function Dashboard() {
                   {activeTab === 'reports' && "Laporan Mingguan"}
                   {activeTab === 'stats' && "Statistik Jemaat"}
                   {activeTab === 'map' && "Pemetaan Jemaat"}
+                  {activeTab === 'mediarepo' && "Galeri Multimedia"}
+                  {activeTab === 'documents' && "Arsip Dokumen"}
+                  {activeTab === 'worship' && "Tema Ibadah"}
+                  {activeTab === 'misikaltara' && "Misi Kaltara"}
                   {activeTab === 'settings' && "Pengaturan Sistem"}
                 </>
               )}
@@ -794,6 +962,15 @@ export default function Dashboard() {
             <></>
           ) : (
             <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto justify-end">
+              <button
+                onClick={handleManualSync}
+                disabled={isSyncing || isLoading}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+                title="Sinkronisasi Manual"
+              >
+                <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin text-blue-500' : ''}`} />
+                <span className="hidden lg:inline">{isSyncing ? 'Menyinkronkan...' : 'Sinkronisasi'}</span>
+              </button>
               
               {/* Dark Mode Toggle */}
               <button 
@@ -805,53 +982,54 @@ export default function Dashboard() {
               </button>
 
               {/* Notification Bell */}
-              <div className="relative notification-container">
-                <button
-                  onClick={() => setIsNotificationOpen(!isNotificationOpen)}
-                  className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 p-2 md:px-3 md:py-2 rounded-lg transition-all flex items-center justify-center focus:outline-none shadow-sm relative"
-                >
-                  <Bell className="h-4 w-4 md:h-4 md:w-4" />
-                  {notifications.length > 0 && (
-                    <span className="absolute top-1.5 right-1.5 md:right-2.5 w-1.5 h-1.5 md:w-2 md:h-2 bg-red-500 rounded-full animate-pulse"></span>
-                  )}
-                </button>
-                
-                <div className={`absolute right-0 mt-2 w-72 md:w-80 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 transition-all duration-200 z-50 transform origin-top-right ${isNotificationOpen ? 'opacity-100 visible scale-100' : 'opacity-0 invisible scale-95'}`}>
-                  <div className="p-3 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Pusat Notifikasi</h3>
-                    <span className="bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 text-[10px] font-bold px-2 py-0.5 rounded-full">{notifications.length} Baru</span>
-                  </div>
-                  <div className="max-h-80 overflow-y-auto">
-                    {notifications.length === 0 ? (
-                      <div className="p-6 text-center text-slate-500 dark:text-slate-400 text-xs">
-                        <Bell className="h-8 w-8 mx-auto -mt-2 mb-2 opacity-20" />
-                        Belum ada notifikasi
-                      </div>
-                    ) : (
-                      <div className="flex flex-col">
-                        {notifications.map((notif, idx) => (
-                          <div 
-                            key={notif.id} 
-                            onClick={() => {
-                              setIsNotificationOpen(false);
-                              const memberToEdit = members.find(m => m.id === notif.memberId);
-                              if (memberToEdit && user?.username !== 'BEM') {
-                                setSelectedMember(memberToEdit);
-                                setIsModalOpen(true);
-                              } else if (notif.type === 'birthday') {
-                                setActiveTab('birthdays');
-                                setBirthdaySubTab('terdekat'); // Tampilkan yang terdekat
-                              } else {
-                                setActiveTab('members');
-                                setSortBy('created_at_desc'); // Urutkan terbaru
-                                setSearchTerm(''); // Bersihkan pencarian jika ada
-                              }
-                            }}
-                            className={`p-3 border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer ${idx === notifications.length - 1 ? 'border-none' : ''}`}
-                          >
-                            <div className="flex gap-3 items-start">
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${notif.type === 'birthday' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
-                                {notif.type === 'birthday' ? <Gift className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+              {user?.username !== 'BEM' && (
+                <div className="relative notification-container">
+                  <button
+                    onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                    className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 p-2 md:px-3 md:py-2 rounded-lg transition-all flex items-center justify-center focus:outline-none shadow-sm relative"
+                  >
+                    <Bell className="h-4 w-4 md:h-4 md:w-4" />
+                    {notifications.length > 0 && (
+                      <span className="absolute top-1.5 right-1.5 md:right-2.5 w-1.5 h-1.5 md:w-2 md:h-2 bg-red-500 rounded-full animate-pulse"></span>
+                    )}
+                  </button>
+                  
+                  <div className={`absolute right-0 mt-2 w-72 md:w-80 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 transition-all duration-200 z-50 transform origin-top-right ${isNotificationOpen ? 'opacity-100 visible scale-100' : 'opacity-0 invisible scale-95'}`}>
+                    <div className="p-3 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                      <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Pusat Notifikasi</h3>
+                      <span className="bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 text-[10px] font-bold px-2 py-0.5 rounded-full">{notifications.length} Baru</span>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="p-6 text-center text-slate-500 dark:text-slate-400 text-xs">
+                          <Bell className="h-8 w-8 mx-auto -mt-2 mb-2 opacity-20" />
+                          Belum ada notifikasi
+                        </div>
+                      ) : (
+                        <div className="flex flex-col">
+                          {notifications.map((notif, idx) => (
+                            <div 
+                              key={notif.id} 
+                              onClick={() => {
+                                setIsNotificationOpen(false);
+                                const memberToEdit = members.find(m => m.id === notif.memberId);
+                                if (memberToEdit && user?.username !== 'BEM') {
+                                  setSelectedMember(memberToEdit);
+                                  setIsModalOpen(true);
+                                } else if (notif.type === 'birthday') {
+                                  setActiveTab('birthdays');
+                                  setBirthdaySubTab('terdekat'); // Tampilkan yang terdekat
+                                } else {
+                                  setActiveTab('members');
+                                  setSortBy('created_at_desc'); // Urutkan terbaru
+                                  setSearchTerm(''); // Bersihkan pencarian jika ada
+                                }
+                              }}
+                              className={`p-3 border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer ${idx === notifications.length - 1 ? 'border-none' : ''}`}
+                            >
+                              <div className="flex gap-3 items-start">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${notif.type === 'birthday' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
+                                  {notif.type === 'birthday' ? <Gift className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
                               </div>
                               <div>
                                 <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">{notif.title}</h4>
@@ -868,6 +1046,7 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
+              )}
 
               <input
                 type="file"
@@ -988,7 +1167,7 @@ export default function Dashboard() {
                     >
                       <option value="">Semua Status</option>
                       <option value="Aktif">Jemaat Aktif</option>
-                      <option value="Keluar">Sudah Keluar</option>
+                      <option value="Keluar">Atestasi</option>
                     </select>
 
                     <select
@@ -1036,7 +1215,7 @@ export default function Dashboard() {
                 </div>
                 
                 <div className="overflow-auto flex-1 w-full relative">
-                  <table className="w-full text-xs text-left border-collapse">
+                  <table className="w-full text-xs text-left border-collapse whitespace-nowrap min-w-max">
                     <thead className="sticky top-0 bg-white dark:bg-slate-900 shadow-sm z-30 border-b border-slate-200 dark:border-slate-700">
                       <tr className="text-slate-500 dark:text-slate-400 uppercase font-bold bg-white dark:bg-slate-900">
                         <th className="p-3">#</th>
@@ -1046,6 +1225,7 @@ export default function Dashboard() {
                         <th className="p-3">TTL</th>
                         <th className="p-3">No. Telp</th>
                         <th className="p-3">Alamat Asal</th>
+                        <th className="p-3">Provinsi</th>
                         <th className="p-3">Jenis Baptis</th>
                         <th className="p-3">Tgl Masuk</th>
                         <th className="p-3">Foto</th>
@@ -1093,7 +1273,7 @@ export default function Dashboard() {
                               <td className="p-3 font-semibold text-slate-800 dark:text-slate-100">
                                 <div>{formatNameTitleCase(member.nama_lengkap)}</div>
                                 <span className={`inline-block mt-0.5 px-1.5 py-px rounded text-[9px] font-bold uppercase tracking-wider ${!member.tanggal_keluar ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'}`}>
-                                  {!member.tanggal_keluar ? 'Aktif' : 'Keluar'}
+                                  {!member.tanggal_keluar ? 'Aktif' : 'Atestasi'}
                                 </span>
                               </td>
                               <td className="p-3 text-slate-700 dark:text-slate-300">{member.jenis_kelamin === 'Pria' ? 'Pria' : 'Wanita'}</td>
@@ -1118,6 +1298,7 @@ export default function Dashboard() {
                               </td>
                               <td className="p-3 font-mono text-slate-700 dark:text-slate-300">{member.no_telp || '-'}</td>
                               <td className="p-3 max-w-[150px] truncate text-slate-700 dark:text-slate-300" title={member.alamat_asal}>{member.alamat_asal}</td>
+                              <td className="p-3 max-w-[120px] truncate text-slate-700 dark:text-slate-300" title={member.provinsi}>{member.provinsi || '-'}</td>
                               <td className="p-3">
                                 {member.jenis_baptis ? (
                                   <span className={`text-[10px] px-2 py-[2px] rounded-full font-semibold uppercase ${badgeStyle}`}>
@@ -1273,28 +1454,62 @@ export default function Dashboard() {
                     >
                       <option value="">Semua Status</option>
                       <option value="Aktif">Anggota Aktif</option>
-                      <option value="Keluar">Sudah Keluar</option>
+                      <option value="Keluar">Atestasi</option>
                     </select>
                   </div>
                 </div>
 
                 {/* Sub-tabs untuk Bulan Ini vs Terdekat */}
-                <div className="flex px-4 md:px-6 pt-2 h-10 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                <div className="flex px-4 md:px-6 pt-2 h-10 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-x-auto whitespace-nowrap scrollbar-hide">
                   <div className="flex space-x-4 h-full">
                     <button
                       onClick={() => setBirthdaySubTab('terdekat')}
                       className={`h-full px-2 text-sm font-medium border-b-2 transition-colors ${birthdaySubTab === 'terdekat' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'}`}
                     >
-                      Ulang Tahun Terdekat
+                      Terdekat
+                    </button>
+                    <button
+                      onClick={() => setBirthdaySubTab('mingguIni')}
+                      className={`h-full px-2 text-sm font-medium border-b-2 transition-colors ${birthdaySubTab === 'mingguIni' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'}`}
+                    >
+                      Minggu Ini
+                    </button>
+                    <button
+                      onClick={() => setBirthdaySubTab('mingguLalu')}
+                      className={`h-full px-2 text-sm font-medium border-b-2 transition-colors ${birthdaySubTab === 'mingguLalu' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'}`}
+                    >
+                      Minggu Lalu
                     </button>
                     <button
                       onClick={() => setBirthdaySubTab('bulanIni')}
                       className={`h-full px-2 text-sm font-medium border-b-2 transition-colors ${birthdaySubTab === 'bulanIni' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'}`}
                     >
-                      Pada Bulan Ini
+                      Bulan Ini
+                    </button>
+                    <button
+                      onClick={() => setBirthdaySubTab('kustom')}
+                      className={`h-full px-2 text-sm font-medium border-b-2 transition-colors ${birthdaySubTab === 'kustom' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'}`}
+                    >
+                      Kustom
                     </button>
                   </div>
                 </div>
+                
+                {birthdaySubTab === 'kustom' && (
+                  <div className="px-4 md:px-6 py-3 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 flex items-center gap-3">
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300">Pilih Bulan:</label>
+                    <select
+                      className="text-sm border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500"
+                      value={birthdayCustomMonth}
+                      onChange={(e) => setBirthdayCustomMonth(Number(e.target.value))}
+                    >
+                      {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => {
+                        const date = new Date(2000, m - 1, 1);
+                        return <option key={m} value={m}>{date.toLocaleString('id-ID', { month: 'long' })}</option>
+                      })}
+                    </select>
+                  </div>
+                )}
               </div>
               
               <div className={`flex-1 w-full bg-slate-50/50 dark:bg-slate-900/50 flex flex-col min-h-0 ${birthdayView === 'grid' ? 'p-3 sm:p-4 md:p-6 overflow-auto' : 'overflow-hidden'}`}>
@@ -1377,7 +1592,7 @@ export default function Dashboard() {
                                 </div>
                                 <div className="flex items-center mt-1">
                                   <span className={`px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold uppercase tracking-wider whitespace-nowrap ${isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'}`}>
-                                    {isActive ? 'Aktif' : 'Keluar'}
+                                    {isActive ? 'Aktif' : 'Atestasi'}
                                   </span>
                                 </div>
                              </div>
@@ -1415,7 +1630,7 @@ export default function Dashboard() {
                   {birthdayMembers.length === 0 && (
                      <div className="col-span-full py-12 text-center text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
                        <Gift className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
-                       <p>{birthdaySubTab === 'bulanIni' ? 'Tidak ada jemaat yang berulang tahun pada bulan ini.' : 'Belum ada data tanggal lahir yang valid untuk ditampilkan.'}</p>
+                       <p>{birthdaySubTab === 'bulanIni' ? 'Tidak ada jemaat yang berulang tahun pada bulan ini.' : birthdaySubTab === 'mingguIni' ? 'Tidak ada jemaat yang berulang tahun pada minggu ini.' : birthdaySubTab === 'mingguLalu' ? 'Tidak ada jemaat yang berulang tahun pada minggu lalu.' : 'Belum ada data tanggal lahir yang valid untuk ditampilkan.'}</p>
                      </div>
                   )}
                 </div>
@@ -1480,7 +1695,7 @@ export default function Dashboard() {
                                             </span>
                                           )}
                                           <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'}`}>
-                                            {isActive ? 'Aktif' : 'Keluar'}
+                                            {isActive ? 'Aktif' : 'Atestasi'}
                                           </span>
                                         </div>
                                       </div>
@@ -1510,7 +1725,7 @@ export default function Dashboard() {
                           {birthdayMembers.length === 0 && (
                              <tr>
                                 <td colSpan={4} className="p-8 text-center text-slate-500 dark:text-slate-400">
-                                  {birthdaySubTab === 'bulanIni' ? 'Tidak ada jemaat yang berulang tahun pada bulan ini.' : 'Belum ada data tanggal lahir yang valid untuk ditampilkan.'}
+                                  {birthdaySubTab === 'bulanIni' ? 'Tidak ada jemaat yang berulang tahun pada bulan ini.' : birthdaySubTab === 'mingguIni' ? 'Tidak ada jemaat yang berulang tahun pada minggu ini.' : birthdaySubTab === 'mingguLalu' ? 'Tidak ada jemaat yang berulang tahun pada minggu lalu.' : 'Belum ada data tanggal lahir yang valid untuk ditampilkan.'}
                                 </td>
                              </tr>
                           )}
@@ -1583,7 +1798,7 @@ export default function Dashboard() {
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={[
                         { name: 'Aktif', value: members.filter(m => !m.tanggal_keluar).length },
-                        { name: 'Keluar', value: members.filter(m => m.tanggal_keluar).length }
+                        { name: 'Atestasi', value: members.filter(m => m.tanggal_keluar).length }
                       ]}>
                         <XAxis dataKey="name" tick={{fontSize: 10, fill: isDarkMode ? '#94a3b8' : '#64748b'}} interval={0} />
                         <YAxis tick={{fontSize: 10, fill: isDarkMode ? '#94a3b8' : '#64748b'}} width={35} />
@@ -1610,12 +1825,12 @@ export default function Dashboard() {
                      </button>
                      <div>
                        <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100">Jemaat Area: {selectedMapArea}</h2>
-                       <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Total {members.filter(m => (m.alamat_asal || 'Lainnya').split(' ')[0] === selectedMapArea).length} Anggota</p>
+                       <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Total {selectedMapAreaMembers.length} Anggota</p>
                      </div>
                    </div>
                    <div className="flex-1 overflow-y-auto pr-2">
                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-                        {members.filter(m => (m.alamat_asal || 'Lainnya').split(' ')[0] === selectedMapArea).map(m => (
+                        {selectedMapAreaMembers.map(m => (
                           <div 
                             key={m.id} 
                             onClick={() => { if(canViewProfile) { setViewingProfileId(m.id); } }} 
@@ -1630,7 +1845,7 @@ export default function Dashboard() {
                              </div>
                              <div className="min-w-0">
                                <p className="font-bold text-slate-800 dark:text-slate-100 truncate text-sm">{formatNameTitleCase(m.nama_lengkap)}</p>
-                               <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">{m.alamat_asal || 'Lainnya'}</p>
+                               <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">{m.provinsi || m.alamat_asal || 'Lainnya'}</p>
                              </div>
                           </div>
                         ))}
@@ -1639,40 +1854,76 @@ export default function Dashboard() {
                  </div>
                ) : (
                  <>
-                  <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 mb-4 sm:mb-6 shrink-0">Pemetaan Jemaat Berdasarkan Alamat</h2>
-                  <div className="flex-1 overflow-y-auto pr-2">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                      {Object.entries(
-                        members.reduce((acc, m) => {
-                          const addr = m.alamat_asal || 'Lainnya';
-                          const groupName = addr.split(' ')[0] || 'Lainnya';
-                          acc[groupName] = (acc[groupName] || 0) + 1;
-                          return acc;
-                        }, {} as Record<string, number>)
-                      ).map(([group, count]) => (
-                        <div key={group} onClick={() => setSelectedMapArea(group)} className="p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 flex justify-between items-center hover:bg-slate-100 dark:hover:bg-slate-700/50 hover:border-blue-300 dark:hover:border-blue-700 transition-colors cursor-pointer group">
-                          <div className="min-w-0 pr-3">
-                            <p className="font-bold text-sm sm:text-base text-slate-800 dark:text-slate-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" title={group}>{group}</p>
-                            <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">Area/Wilayah</p>
-                          </div>
-                          <div className="w-8 h-8 sm:w-10 sm:h-10 shrink-0 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 flex items-center justify-center font-bold text-xs sm:text-sm group-hover:scale-110 transition-transform">
-                            {count}
-                          </div>
-                        </div>
-                      ))}
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4 sm:mb-6 shrink-0">
+                    <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100">Pemetaan Jemaat Berdasarkan Provinsi Asal</h2>
+                    <div className="flex flex-wrap items-center gap-2">
+                       <div className="relative">
+                          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <input 
+                            type="text" 
+                            placeholder="Cari provinsi..." 
+                            className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg pl-9 pr-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 w-full sm:w-40 text-slate-800 dark:text-slate-100"
+                            value={mapSearchQuery}
+                            onChange={(e) => setMapSearchQuery(e.target.value)}
+                          />
+                       </div>
+                       <select 
+                         className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
+                         value={mapStatusFilter}
+                         onChange={(e) => setMapStatusFilter(e.target.value as any)}
+                       >
+                         <option value="semua">Semua Data</option>
+                         <option value="aktif">Aktif</option>
+                         <option value="keluar">Keluar</option>
+                       </select>
+                       <select 
+                         className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
+                         value={mapSortBy}
+                         onChange={(e) => setMapSortBy(e.target.value as any)}
+                       >
+                         <option value="abjad">Abjad (A-Z)</option>
+                         <option value="jumlah">Jml Terbanyak</option>
+                       </select>
                     </div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto pr-2">
+                    {mapData.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                        {mapData.map(([group, count]) => (
+                          <div key={group} onClick={() => setSelectedMapArea(group)} className="p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 flex justify-between items-center hover:bg-slate-100 dark:hover:bg-slate-700/50 hover:border-blue-300 dark:hover:border-blue-700 transition-colors cursor-pointer group">
+                            <div className="min-w-0 pr-3">
+                              <p className="font-bold text-sm sm:text-base text-slate-800 dark:text-slate-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" title={group}>{group}</p>
+                              <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">Area/Wilayah</p>
+                            </div>
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 shrink-0 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 flex items-center justify-center font-bold text-xs sm:text-sm group-hover:scale-110 transition-transform">
+                              {count}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-10 text-slate-500 dark:text-slate-400">
+                        <MapPin className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                        <p>Tidak ada data provinsi yang sesuai dengan filter.</p>
+                      </div>
+                    )}
                   </div>
                  </>
                )}
             </div>
           )}
 
+          {activeTab === 'mediarepo' && <MediaRepoPanel />}
+          {activeTab === 'documents' && <DocumentPanel />}
+          {activeTab === 'worship' && <WorshipThemePanel />}
+          {activeTab === 'misikaltara' && <MisiKaltaraPanel />}
+
           {activeTab === 'settings' && (
             <div className="flex-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1),0_8px_10px_-6px_rgba(0,0,0,0.1)] p-6 overflow-y-auto">
               <div className="max-w-xl mx-auto space-y-8">
                 <div>
                   <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4">Pengaturan Sistem</h2>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Kelola preferensi akun dan aplikasi Buku Induk GPSTIAA Siloam.</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Kelola preferensi akun dan aplikasi Buku Induk GPSTTIAA.</p>
                 </div>
                 
                 <div className="space-y-4">
@@ -1700,11 +1951,8 @@ export default function Dashboard() {
                     <input 
                       type="text" 
                       value={ketuaJemaat}
-                      onChange={(e) => {
-                        setKetuaJemaat(e.target.value);
-                        localStorage.setItem('ketuaJemaat', e.target.value);
-                      }}
-                      className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                      readOnly
+                      className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 cursor-not-allowed focus:outline-none"
                     />
                   </div>
                 </div>
@@ -1768,6 +2016,9 @@ export default function Dashboard() {
           )}
           </>
           )}
+        </div>
+        <div className="text-center p-3 text-xs font-medium text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shrink-0 w-full z-10 transition-colors">
+          Kontak: <a href="mailto:gpsttiaa@gmail.com" className="text-blue-500 hover:underline">gpsttiaa@gmail.com</a> | Bank: <span className="font-mono bg-slate-100 dark:bg-slate-700 px-1 py-0.5 rounded">614-055-5795</span> an. Ana Budi Kristiani
         </div>
       </main>
 
@@ -1846,15 +2097,48 @@ export default function Dashboard() {
       {/* Full Screen Greeting Modal */}
       {greetingMessage && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-500">
-          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-[0_20px_50px_rgba(8,_112,_184,_0.2)] max-w-lg w-full p-12 text-center flex flex-col items-center animate-in zoom-in-95 duration-500 border border-slate-100 dark:border-slate-700">
-            <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 rounded-full flex items-center justify-center mb-8 shadow-inner">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-[0_20px_50px_rgba(8,_112,_184,_0.2)] max-w-lg w-full p-10 sm:p-12 text-center flex flex-col items-center animate-in zoom-in-95 duration-500 border border-slate-100 dark:border-slate-700">
+            <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 rounded-full flex items-center justify-center mb-6 shadow-inner">
               <span className="text-4xl">👋</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl font-serif font-medium tracking-tight text-slate-800 dark:text-slate-100 mb-8 leading-snug">
+            <h2 className="text-3xl sm:text-4xl font-serif font-medium tracking-tight text-slate-800 dark:text-slate-100 mb-6 leading-snug">
               <span className="opacity-90">{greetingMessage.split(' ').slice(0, 2).join(' ')}</span>
               <br />
               <span className="font-semibold text-blue-700 dark:text-blue-400">{greetingMessage.split(' ').slice(2).join(' ')}</span>
             </h2>
+
+            {(() => {
+              const bdays = members.filter(m => getDaysToBirthday(m.tanggal_lahir) === 0 && !m.tanggal_keluar);
+              if (bdays.length === 0) return null;
+              
+              return (
+                <div className="w-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-2xl p-5 mb-8 animate-in slide-in-from-bottom-4 duration-700">
+                  <div className="flex items-center justify-center gap-2 mb-3">
+                    <Gift className="w-6 h-6 text-amber-500 animate-bounce" />
+                    <h3 className="text-lg font-bold text-amber-800 dark:text-amber-400">Selamat Ulang Tahun!</h3>
+                  </div>
+                  <p className="text-sm font-medium text-amber-700 dark:text-amber-300 mb-3">
+                    Hari ini ada jemaat yang berulang tahun:
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {bdays.map(m => {
+                      const todayDate = new Date();
+                      const birthDateObj = new Date(m.tanggal_lahir!);
+                      const age = todayDate.getFullYear() - birthDateObj.getFullYear();
+                      return (
+                        <div key={m.id} className="bg-white/60 dark:bg-slate-800/60 rounded-xl py-2 px-3 flex items-center justify-center gap-2 font-semibold text-amber-900 dark:text-amber-100">
+                          <span className="truncate max-w-[200px] sm:max-w-[250px]">{formatNameTitleCase(m.nama_lengkap)}</span>
+                          <span className="px-2 py-0.5 bg-amber-200 dark:bg-amber-700/50 text-amber-800 dark:text-amber-200 rounded-full text-xs shrink-0">
+                            Ke-{age}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
             <button
               onClick={() => setGreetingMessage(null)}
               className="w-full sm:w-auto px-12 py-3.5 text-base font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-full transition-all hover:scale-105 active:scale-95 focus:outline-none shadow-lg shadow-blue-600/30 tracking-wide"

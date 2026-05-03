@@ -4,7 +4,6 @@ import { X, Download, User, Droplets, Clock, Image as ImageIcon } from 'lucide-r
 import { useTheme } from '../ThemeContext';
 import { formatDateDDMMYYYY, getDirectDriveLink, formatNameTitleCase } from '../lib/utils';
 import { toPng } from 'html-to-image';
-import { jsPDF } from 'jspdf';
 
 interface MemberViewModalProps {
   isOpen: boolean;
@@ -78,6 +77,7 @@ export default function MemberViewModal({ isOpen, onClose, member, ketuaJemaat =
   const handleDownloadPDF = async () => {
     setIsGeneratingPdf(true);
     try {
+      const { jsPDF } = await import("jspdf");
       const dataUrl = await prepareImage();
       if (!dataUrl) return;
       
@@ -181,12 +181,15 @@ export default function MemberViewModal({ isOpen, onClose, member, ketuaJemaat =
                  <div className="absolute top-0 right-0 -mt-16 -mr-16 w-48 h-48 bg-white opacity-5 rounded-full blur-2xl"></div>
                  <div className="absolute bottom-0 right-20 -mb-12 w-32 h-32 bg-blue-400 opacity-20 rounded-full blur-xl"></div>
                  
-                 <div className="h-16 w-auto shrink-0 relative z-10 flex items-center justify-center bg-white p-1.5 rounded-xl shadow-md">
-                    <img src="https://corsproxy.io/?https%3A%2F%2Fi.ibb.co.com%2FXfg0zs6D%2FGPSTIAA-LOGO.png" alt="GPSTIAA" className="h-full w-auto object-contain" crossOrigin="anonymous" />
+                 <div className="h-16 w-auto shrink-0 relative z-10 flex items-center justify-center gap-1">
+                    <div className="h-14 w-14 bg-white rounded-full flex items-center justify-center overflow-hidden border border-slate-200">
+                      <img src="https://corsproxy.io/?https%3A%2F%2Fi.ibb.co.com%2FHTcTMCcr%2FGPSTIAA-LOGO-1.png" alt="GPSTIAA" className="h-full w-full object-cover" crossOrigin="anonymous" />
+                    </div>
+                    <img src="https://corsproxy.io/?https%3A%2F%2Fi.ibb.co.com%2FzHfFFrd1%2FAA-2-1-2-1.png" alt="STTIAA" className="h-14 w-auto object-contain" crossOrigin="anonymous" />
                  </div>
                  <div className="relative z-10">
                     <h1 className="text-2xl font-black uppercase tracking-widest drop-shadow-md leading-tight">KARTU JEMAAT</h1>
-                    <h2 className="text-sm font-semibold text-blue-100 uppercase tracking-wider mt-0.5">GPSTIAA Siloam</h2>
+                    <h2 className="text-sm font-semibold text-blue-100 uppercase tracking-wider mt-0.5">GPSTTIAA</h2>
                  </div>
               </div>
               
@@ -206,7 +209,7 @@ export default function MemberViewModal({ isOpen, onClose, member, ketuaJemaat =
                     <div className="w-full text-center">
                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Status Keanggotaan</p>
                        <div className={`py-1.5 px-3 rounded-full text-xs font-bold tracking-widest uppercase shadow-inner border ${isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50'}`}>
-                          {isActive ? 'JEMAAT AKTIF' : 'KELUAR'}
+                          {isActive ? 'JEMAAT AKTIF' : 'ATESTASI'}
                        </div>
                     </div>
                  </div>
@@ -234,6 +237,10 @@ export default function MemberViewModal({ isOpen, onClose, member, ketuaJemaat =
                      <div className="grid grid-cols-[100px_1fr] md:grid-cols-[110px_1fr] gap-x-2 items-start">
                         <span className="font-bold text-[9px] text-slate-400 uppercase tracking-wider mt-0.5">Alamat</span>
                         <span className="font-semibold text-slate-800 dark:text-slate-200 leading-snug break-words line-clamp-2" title={member.alamat_asal}>{member.alamat_asal || '-'}</span>
+                     </div>
+                     <div className="grid grid-cols-[100px_1fr] md:grid-cols-[110px_1fr] gap-x-2 items-start">
+                        <span className="font-bold text-[9px] text-slate-400 uppercase tracking-wider mt-0.5">Provinsi</span>
+                        <span className="font-semibold text-slate-800 dark:text-slate-200 leading-snug break-words line-clamp-1">{member.provinsi || '-'}</span>
                      </div>
                      <div className="grid grid-cols-[100px_1fr] md:grid-cols-[110px_1fr] gap-x-2 items-start">
                         <span className="font-bold text-[9px] text-slate-400 uppercase tracking-wider mt-0.5">No. Telepon</span>
@@ -282,7 +289,7 @@ export default function MemberViewModal({ isOpen, onClose, member, ketuaJemaat =
             {/* Giant Background Watermark */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.02] dark:opacity-[0.03] pointer-events-none rotate-[-15deg] select-none scale-150 transform-gpu">
                <span className="text-[180px] font-black uppercase text-slate-900 dark:text-white leading-none whitespace-nowrap">
-                 {isActive ? 'GPSTIAA' : 'KELUAR'}
+                 {isActive ? 'GPSTTIAA' : 'ATESTASI'}
                </span>
             </div>
           </div>

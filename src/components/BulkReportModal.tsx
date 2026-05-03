@@ -34,8 +34,6 @@ export default function BulkReportModal({ isOpen, onClose, onSuccess }: BulkRepo
     perpuluhan: "0",
     diakonia: "0",
     pemasukan_lainnya: "0",
-    pengeluaran: "0",
-    keterangan_pengeluaran: "",
     keterangan: ""
   });
 
@@ -100,8 +98,6 @@ export default function BulkReportModal({ isOpen, onClose, onSuccess }: BulkRepo
           perpuluhan: parseRupiah(row.perpuluhan),
           diakonia: parseRupiah(row.diakonia),
           pemasukan_lainnya: parseRupiah(row.pemasukan_lainnya),
-          pengeluaran: parseRupiah(row.pengeluaran),
-          keterangan_pengeluaran: row.keterangan_pengeluaran.trim(),
           keterangan: row.keterangan.trim(),
           tenantId: "gpstiaa",
         };
@@ -173,8 +169,6 @@ export default function BulkReportModal({ isOpen, onClose, onSuccess }: BulkRepo
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Perpuluhan (Rp)</th>
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Diakonia (Rp)</th>
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Pemasukan Lain (Rp)</th>
-                <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Pengeluaran (Rp)</th>
-                <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Ket Pengeluaran</th>
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Keterangan Lain</th>
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700 text-center w-12">Aksi</th>
               </tr>
@@ -221,13 +215,7 @@ export default function BulkReportModal({ isOpen, onClose, onSuccess }: BulkRepo
                   <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors">
                     <input type="text" value={formatRupiah(row.pemasukan_lainnya)} onChange={(e) => handleChange(row._localId, 'pemasukan_lainnya', e.target.value)} onKeyDown={(e) => handleKeyDown(e, index, 'pemasukan_lainnya')} data-col="pemasukan_lainnya" data-rowindex={index} className={`${inputClass} text-right font-mono min-w-[120px]`} placeholder="0" />
                   </td>
-                  <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors">
-                    <input type="text" value={formatRupiah(row.pengeluaran)} onChange={(e) => handleChange(row._localId, 'pengeluaran', e.target.value)} onKeyDown={(e) => handleKeyDown(e, index, 'pengeluaran')} data-col="pengeluaran" data-rowindex={index} className={`${inputClass} text-right font-mono text-red-500 min-w-[120px]`} placeholder="0" />
-                  </td>
                   
-                  <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors">
-                    <input type="text" value={row.keterangan_pengeluaran} onChange={(e) => handleChange(row._localId, 'keterangan_pengeluaran', e.target.value)} onKeyDown={(e) => handleKeyDown(e, index, 'keterangan_pengeluaran')} data-col="keterangan_pengeluaran" data-rowindex={index} className={`${inputClass} min-w-[150px]`} placeholder="..." />
-                  </td>
                   <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors">
                     <input type="text" value={row.keterangan} onChange={(e) => handleChange(row._localId, 'keterangan', e.target.value)} onKeyDown={(e) => handleKeyDown(e, index, 'keterangan')} data-col="keterangan" data-rowindex={index} className={`${inputClass} min-w-[150px]`} placeholder="..." />
                   </td>

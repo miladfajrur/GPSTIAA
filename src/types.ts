@@ -6,6 +6,7 @@ export interface Member {
   tempat_lahir: string;
   tanggal_lahir: string;
   alamat_asal: string;
+  provinsi?: string;
   no_telp?: string;
   jenis_baptis: string;
   keterangan_baptis: string;
@@ -33,10 +34,56 @@ export interface WeeklyReport {
   perpuluhan: number;
   diakonia: number;
   pemasukan_lainnya: number;
-  pengeluaran: number;
-  keterangan_pengeluaran: string;
+  // Pengeluaran removed
   keterangan: string;
   createdAt?: any;
   updatedAt?: any;
 }
+
+export interface MediaRepo {
+  id?: string;
+  tenantId: string;
+  title: string;
+  category?: string;
+  bulan: string; // YYYY-MM
+  driveLink: string;
+  description: string;
+  createdAt?: any;
+  updatedAt?: any;
+}
+
+export interface DocumentItem {
+  id?: string;
+  tenantId: string;
+  title: string;
+  category: "Masuk" | "Keluar";
+  date: string;
+  driveLink: string;
+  description: string;
+  createdAt?: any;
+  updatedAt?: any;
+}
+
+export interface WorshipTheme {
+  id?: string;
+  tenantId: string;
+  type: "Ibadah Umum" | "Sekolah Minggu" | "Pemahaman Alkitab";
+  date: string;
+  theme: string;
+  speaker: string;
+  createdAt?: any;
+  updatedAt?: any;
+}
+
+export interface MisiRepo {
+  id?: string;
+  tenantId: string;
+  title: string;
+  bulan: string; // YYYY-MM
+  driveLink: string;
+  description: string;
+  createdAt?: any;
+  updatedAt?: any;
+}
+
 

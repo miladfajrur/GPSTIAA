@@ -133,6 +133,12 @@ export default function MemberProfile({ member, onBack }: MemberProfileProps) {
                      {member.alamat_asal || '-'}
                    </p>
                  </div>
+                 <div>
+                   <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Provinsi Asal</p>
+                   <p className="text-sm font-medium text-slate-800 dark:text-slate-200 leading-relaxed">
+                     {member.provinsi || '-'}
+                   </p>
+                 </div>
               </div>
            </div>
 

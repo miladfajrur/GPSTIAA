@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { X, Calendar, FileText, Users, DollarSign, ArrowUpRight, ArrowDownRight, Edit3 } from "lucide-react";
+import { X, Calendar, FileText, Users, Download, ArrowUpRight, ArrowDownRight, Edit3 } from "lucide-react";
 import { WeeklyReport } from "../types";
+import DateInputMask from "./DateInputMask";
 
 interface WeeklyReportModalProps {
   isOpen: boolean;
@@ -31,8 +32,6 @@ export default function WeeklyReportModal({ isOpen, onClose, initialData, onSave
     perpuluhan: 0,
     diakonia: 0,
     pemasukan_lainnya: 0,
-    pengeluaran: 0,
-    keterangan_pengeluaran: "",
     keterangan: "",
     tenantId: "gpstiaa"
   });
@@ -52,8 +51,6 @@ export default function WeeklyReportModal({ isOpen, onClose, initialData, onSave
         perpuluhan: 0,
         diakonia: 0,
         pemasukan_lainnya: 0,
-        pengeluaran: 0,
-        keterangan_pengeluaran: "",
         keterangan: "",
         tenantId: "gpstiaa"
       });
@@ -120,12 +117,12 @@ export default function WeeklyReportModal({ isOpen, onClose, initialData, onSave
                   <div className="space-y-4 mt-2">
                      <div>
                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Tanggal Ibadah</label>
-                       <input
-                         type="date"
+                       <DateInputMask
                          name="tanggal_ibadah"
                          required
-                         value={formData.tanggal_ibadah}
+                         value={formData.tanggal_ibadah || ""}
                          onChange={handleChange}
+                         placeholder="DD-MM-YYYY"
                          className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all shadow-inner"
                        />
                      </div>
@@ -259,41 +256,6 @@ export default function WeeklyReportModal({ isOpen, onClose, initialData, onSave
                        className="block w-full rounded-lg border border-emerald-200 dark:border-emerald-800/50 pl-10 pr-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
                      />
                    </div>
-                 </div>
-               </div>
-            </div>
-
-            {/* Pengeluaran */}
-            <div className="bg-red-50/30 dark:bg-red-900/10 rounded-xl shadow-sm border border-red-100 dark:border-red-800/30 p-5 space-y-4">
-               <h3 className="text-sm font-bold uppercase tracking-wider text-red-700 dark:text-red-400 flex items-center gap-2 border-b border-red-200/50 dark:border-red-800/50 pb-3">
-                 <ArrowDownRight className="w-5 h-5" /> Data Pengeluaran (Rp)
-               </h3>
-               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
-                 <div>
-                   <label className="block text-xs font-semibold text-red-800 dark:text-red-300 mb-1.5">Total Nominal Pengeluaran</label>
-                   <div className="relative rounded-md shadow-sm">
-                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                       <span className="text-red-600 dark:text-red-500 font-medium sm:text-sm">Rp</span>
-                     </div>
-                     <input
-                       type="text"
-                       name="pengeluaran"
-                       value={formatRupiah(formData.pengeluaran || 0)}
-                       onChange={handleRupiahChange}
-                       className="block w-full rounded-lg border border-red-200 dark:border-red-800/50 pl-10 pr-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all"
-                     />
-                   </div>
-                 </div>
-                 <div>
-                   <label className="block text-xs font-semibold text-red-800 dark:text-red-300 mb-1.5">Keterangan / Rincian Pengeluaran</label>
-                   <input
-                     type="text"
-                     name="keterangan_pengeluaran"
-                     value={formData.keterangan_pengeluaran || ''}
-                     onChange={handleChange}
-                     placeholder="mis. Konsumsi petugas, alat tulis, biaya operasional"
-                     className="block w-full rounded-lg border border-red-200 dark:border-red-800/50 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all shadow-inner placeholder-slate-400 dark:placeholder-slate-500"
-                   />
                  </div>
                </div>
             </div>

@@ -14,6 +14,8 @@ interface MemberModalProps {
   initialData?: Member;
 }
 
+import { PROVINCES } from '../lib/constants';
+
 export default function MemberModal({ isOpen, onClose, onSave, initialData }: MemberModalProps) {
   const defaultMember: Member = {
     nomor_anggota: "",
@@ -27,6 +29,7 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
     keterangan_baptis: "",
     tanggal_masuk: "",
     tanggal_keluar: "",
+    provinsi: "",
     foto_url: "",
     tenantId: "gpstiaa"
   };
@@ -323,6 +326,24 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
                 onChange={handleChange}
                 className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Provinsi Asal</label>
+              <input
+                type="text"
+                name="provinsi"
+                list="provinsi-list"
+                value={formData.provinsi || ""}
+                onChange={handleChange}
+                placeholder="mis. Kalimantan Utara"
+                className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
+              />
+              <datalist id="provinsi-list">
+                {PROVINCES.map((prov) => (
+                  <option key={prov} value={prov} />
+                ))}
+              </datalist>
             </div>
 
             <div>

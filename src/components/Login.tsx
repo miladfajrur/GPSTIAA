@@ -85,14 +85,21 @@ export default function Login() {
               initial={{ scale: 0.5, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.6, type: "spring", bounce: 0.5 }}
-              whileHover={{ scale: 1.05, rotate: 5 }}
-              className="bg-white/10 p-5 rounded-3xl backdrop-blur-md border border-white/10 shadow-[0_0_30px_-5px_rgba(59,130,246,0.3)] flex items-center justify-center relative group"
+              className="bg-white/10 p-5 rounded-3xl backdrop-blur-md border border-white/10 shadow-[0_0_30px_-5px_rgba(59,130,246,0.3)] flex items-center justify-center gap-4 relative group"
             >
               <div className="absolute inset-0 bg-blue-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl" />
+              <div className="h-20 w-20 rounded-full border-4 border-white/20 overflow-hidden bg-white/10 shrink-0 shadow-xl relative z-10 mx-auto">
+                <img
+                  src="https://i.ibb.co.com/HTcTMCcr/GPSTIAA-LOGO-1.png"
+                  alt="GPSTIAA LOGO"
+                  className="h-full w-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
               <img
-                src="https://i.ibb.co.com/Xfg0zs6D/GPSTIAA-LOGO.png"
-                alt="GPSTIAA LOGO"
-                className="h-24 w-auto object-contain drop-shadow-2xl relative z-10"
+                src="https://i.ibb.co.com/zHfFFrd1/AA-2-1-2-1.png"
+                alt="STTIAA LOGO"
+                className="h-20 w-auto object-contain drop-shadow-2xl relative z-10"
                 referrerPolicy="no-referrer"
               />
             </motion.div>
@@ -100,11 +107,11 @@ export default function Login() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4, duration: 0.6 }}
-              className="mt-8 text-center text-3xl font-extrabold tracking-tight text-white leading-tight"
+              className="mt-8 text-center text-2xl font-extrabold tracking-tight text-white leading-tight"
             >
               Sistem Pendataan <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-emerald-400">
-                GPSTIAA Siloam
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-emerald-400 text-xl block mt-2">
+                Gereja Persekutuan Sekolah Tinggi Teologi Injili Abdi Allah (STTIAA)
               </span>
             </motion.h2>
           </div>
@@ -188,6 +195,16 @@ export default function Login() {
             </motion.div>
           </form>
         </motion.div>
+        
+        <motion.div
+           initial={{ opacity: 0 }}
+           animate={{ opacity: 1 }}
+           transition={{ delay: 1, duration: 1 }}
+           className="mt-8 text-center text-slate-400 text-xs sm:text-sm font-medium tracking-wide pb-4 relative z-10"
+        >
+          <p>Kontak: gpsttiaa@gmail.com | Bank: 614-055-5795 an. Ana Budi Kristiani</p>
+        </motion.div>
+
       </motion.div>
     </div>
   );

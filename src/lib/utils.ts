@@ -48,6 +48,38 @@ export const parseIndonesianDateInput = (value: string) => {
   return value; // If incomplete or wrong, return raw to avoid breaking state prematurely
 };
 
+// Input Formatting (from YYYY-MM to MM-YYYY)
+export const toIndonesianMonthYearInput = (dateString: string | undefined | null) => {
+  if (!dateString) return '';
+  const parts = dateString.split('-'); // typically YYYY-MM
+  if (parts.length === 2) {
+    if (parts[0].length === 4) {
+      // It's YYYY-MM, return MM-YYYY
+      return `${parts[1]}-${parts[0]}`;
+    }
+  }
+  return dateString;
+};
+
+// Automatic formatting while typing for MM-YYYY
+export const maskMonthYearInput = (value: string) => {
+  const v = value.replace(/\D/g, '');
+  if (v.length >= 3) {
+    return `${v.slice(0, 2)}-${v.slice(2, 6)}`;
+  }
+  return v;
+};
+
+// Output parsing (from typed MM-YYYY to DB YYYY-MM)
+export const parseMonthYearInput = (value: string) => {
+  const parts = value.split('-');
+  if (parts.length === 2 && parts[1].length === 4) {
+    return `${parts[1]}-${parts[0]}`;
+  }
+  return value; // If incomplete, keep raw
+};
+
+
 // Image Compression (Agresif: Lebar max 600px, Kualitas 0.6 untuk hasil < 300KB)
 export const compressImage = (file: File, maxWidth = 600, quality = 0.6): Promise<File> => {
   return new Promise((resolve) => {
@@ -131,6 +163,34 @@ export const getDaysToBirthday = (birthDateStr: string) => {
   
   const diffTime = nextBday.getTime() - today.getTime();
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+};
+
+export const isBirthdayInWeek = (birthDateStr: string, offsetWeeks: number) => {
+  if (!birthDateStr) return false;
+  const bDate = new Date(birthDateStr);
+  if (isNaN(bDate.getTime())) return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Find start of current week (let's say Monday)
+  const dayOfWeek = today.getDay() || 7; // 1-7, Mon-Sun
+  const startOfThisWeek = new Date(today.getTime() - (dayOfWeek - 1) * 24 * 60 * 60 * 1000);
+  
+  // Calculate target week
+  const startOfTargetWeek = new Date(startOfThisWeek.getTime() + offsetWeeks * 7 * 24 * 60 * 60 * 1000);
+  const endOfTargetWeek = new Date(startOfTargetWeek.getTime() + 6 * 24 * 60 * 60 * 1000);
+
+  // Check the birthday in this year, previous year, and next year just in case
+  const yearsToCheck = [today.getFullYear() - 1, today.getFullYear(), today.getFullYear() + 1];
+  
+  for (const year of yearsToCheck) {
+    const bday = new Date(year, bDate.getMonth(), bDate.getDate());
+    if (bday.getTime() >= startOfTargetWeek.getTime() && bday.getTime() <= endOfTargetWeek.getTime()) {
+      return true;
+    }
+  }
+  return false;
 };
 
 export const getDirectDriveLink = (url: string | null | undefined): string => {
