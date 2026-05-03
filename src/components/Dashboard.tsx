@@ -1640,7 +1640,9 @@ export default function Dashboard() {
                                     <span>{displayDate}</span> 
                                   </div>
                                   <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                                    Berusia <span className="font-bold text-indigo-600 dark:text-indigo-400">{nextAge}</span> tahun
+                                    Usia saat ini <span className="font-bold text-slate-700 dark:text-slate-200">{currentAge}</span> thn
+                                    <span className="mx-1 text-slate-300 dark:text-slate-600">|</span>
+                                    Mendatang <span className="font-bold text-indigo-600 dark:text-indigo-400">{nextAge}</span> thn
                                   </div>
                                 </div>
                               </div>
@@ -1664,6 +1666,7 @@ export default function Dashboard() {
                           <tr>
                             <th className="p-3 sm:p-4 font-semibold text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900">Jemaat</th>
                             <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900">Tanggal Lahir</th>
+                            <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 hidden sm:table-cell bg-slate-50 dark:bg-slate-900">Usia Saat Ini</th>
                             <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 hidden sm:table-cell bg-slate-50 dark:bg-slate-900">Usia Mendatang</th>
                             <th className="p-3 font-semibold text-slate-600 dark:text-slate-300 text-center bg-slate-50 dark:bg-slate-900">Hitung Mundur</th>
                           </tr>
@@ -1725,7 +1728,10 @@ export default function Dashboard() {
                                   </td>
                                   <td className="p-3 text-sm font-medium text-slate-700 dark:text-slate-300">
                                     {displayDate}
-                                    <div className="text-xs text-slate-500 dark:text-slate-400 sm:hidden mt-0.5">Berusia {nextAge} thn</div>
+                                    <div className="text-xs text-slate-500 dark:text-slate-400 sm:hidden mt-0.5">Saat ini: {currentAge} / Nanti: {nextAge} thn</div>
+                                  </td>
+                                  <td className="p-3 text-sm font-medium text-slate-700 dark:text-slate-300 hidden sm:table-cell">
+                                    <span className="font-bold text-slate-700 dark:text-slate-200">{currentAge}</span> Tahun
                                   </td>
                                   <td className="p-3 text-sm font-medium text-slate-700 dark:text-slate-300 hidden sm:table-cell">
                                     <span className="font-bold text-indigo-600 dark:text-indigo-400">{nextAge}</span> Tahun
@@ -1746,7 +1752,7 @@ export default function Dashboard() {
                           })}
                           {birthdayMembers.length === 0 && (
                              <tr>
-                                <td colSpan={4} className="p-8 text-center text-slate-500 dark:text-slate-400">
+                                <td colSpan={5} className="p-8 text-center text-slate-500 dark:text-slate-400">
                                   {birthdaySubTab === 'bulanIni' ? 'Tidak ada jemaat yang berulang tahun pada bulan ini.' : birthdaySubTab === 'mingguIni' ? 'Tidak ada jemaat yang berulang tahun pada minggu ini.' : birthdaySubTab === 'mingguLalu' ? 'Tidak ada jemaat yang berulang tahun pada minggu lalu.' : 'Belum ada data tanggal lahir yang valid untuk ditampilkan.'}
                                 </td>
                              </tr>
