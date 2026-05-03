@@ -757,6 +757,19 @@ export default function Dashboard() {
     return entries;
   }, [members, mapStatusFilter, mapSearchQuery, mapSortBy]);
 
+  const topProvincesChartData = useMemo(() => {
+    const countMap = members.reduce((acc, m) => {
+      if (m.provinsi && m.provinsi.trim() !== '') {
+        const prov = m.provinsi.trim();
+        acc[prov] = (acc[prov] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+
+    const entries = Object.entries(countMap).sort((a, b) => b[1] - a[1]);
+    return entries.slice(0, 5).map(e => ({ name: e[0].length > 10 ? e[0].substring(0, 10) + '...' : e[0], value: e[1] }));
+  }, [members]);
+
   const selectedMapAreaMembers = useMemo(() => {
     if (!selectedMapArea) return [];
     return members.filter(m => {
@@ -815,18 +828,18 @@ export default function Dashboard() {
         Data Kebaktian
       </button>
       <button 
-        onClick={() => handleTabClick("stats")}
-        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'stats' ? 'bg-white/10 text-white font-medium opacity-100' : 'opacity-60 hover:opacity-100'}`}
-      >
-        {activeTab === 'stats' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <PieChartIcon className="w-4 h-4" />}
-        Statistik Jemaat
-      </button>
-      <button 
         onClick={() => handleTabClick("map")}
         className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'map' ? 'bg-white/10 text-white font-medium opacity-100' : 'opacity-60 hover:opacity-100'}`}
       >
         {activeTab === 'map' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <MapPin className="w-4 h-4" />}
         Pemetaan Jemaat
+      </button>
+      <button 
+        onClick={() => handleTabClick("stats")}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'stats' ? 'bg-white/10 text-white font-medium opacity-100' : 'opacity-60 hover:opacity-100'}`}
+      >
+        {activeTab === 'stats' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <PieChartIcon className="w-4 h-4" />}
+        Statistik Jemaat
       </button>
       <div className="w-full h-px bg-white/10 my-1"></div>
       <button 
@@ -1125,15 +1138,24 @@ export default function Dashboard() {
               {activeTab === 'members' && (
                 <div className="flex-1 flex flex-col gap-6 overflow-hidden min-h-0">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 shrink-0">
-                    <div className="bg-white dark:bg-slate-800 p-3 md:p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)]">
+                    <div 
+                      onClick={() => setGenderFilter('')}
+                      className={`bg-white dark:bg-slate-800 p-3 md:p-4 rounded-xl border ${genderFilter === '' ? 'border-blue-500 shadow-md ring-1 ring-blue-500' : 'border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)]'} cursor-pointer transition-all hover:-translate-y-1 hover:shadow-md`}
+                    >
                       <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-medium uppercase truncate">Total Anggota</p>
                       <p className="text-xl md:text-2xl font-bold text-blue-900 dark:text-blue-100">{members.length}</p>
                     </div>
-                <div className="bg-white dark:bg-slate-800 p-3 md:p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)]">
+                <div 
+                  onClick={() => setGenderFilter('Pria')}
+                  className={`bg-white dark:bg-slate-800 p-3 md:p-4 rounded-xl border ${genderFilter === 'Pria' ? 'border-blue-500 shadow-md ring-1 ring-blue-500' : 'border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)]'} cursor-pointer transition-all hover:-translate-y-1 hover:shadow-md`}
+                >
                   <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-medium uppercase truncate">Jemaat Pria</p>
                   <p className="text-xl md:text-2xl font-bold text-blue-900 dark:text-blue-100">{members.filter(m => m.jenis_kelamin === 'Pria').length}</p>
                 </div>
-                <div className="bg-white dark:bg-slate-800 p-3 md:p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)]">
+                <div 
+                  onClick={() => setGenderFilter('Wanita')}
+                  className={`bg-white dark:bg-slate-800 p-3 md:p-4 rounded-xl border ${genderFilter === 'Wanita' ? 'border-blue-500 shadow-md ring-1 ring-blue-500' : 'border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)]'} cursor-pointer transition-all hover:-translate-y-1 hover:shadow-md`}
+                >
                   <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-medium uppercase truncate">Jemaat Wanita</p>
                   <p className="text-xl md:text-2xl font-bold text-blue-900 dark:text-blue-100">{members.filter(m => m.jenis_kelamin === 'Wanita').length}</p>
                 </div>
@@ -1769,23 +1791,17 @@ export default function Dashboard() {
                 </div>
 
                 <div className="bg-slate-50 dark:bg-slate-800/80 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
-                  <h3 className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 text-center mb-4 uppercase tracking-wider">Status Baptis</h3>
+                  <h3 className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 text-center mb-4 uppercase tracking-wider">Statistik Berdasarkan Provinsi</h3>
                   <div className="h-56 sm:h-64 -ml-4 sm:-ml-2">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={[
-                        { name: 'Belum', value: members.filter(m => !m.jenis_baptis || m.jenis_baptis === '').length },
-                        { name: 'Baptis Kecil', value: members.filter(m => m.jenis_baptis === 'Baptis Kecil').length },
-                        { name: 'SIDI', value: members.filter(m => m.jenis_baptis === 'SIDI').length },
-                        { name: 'Baptis Dewasa', value: members.filter(m => m.jenis_baptis === 'Baptis Dewasa').length }
-                      ]}>
-                        <XAxis dataKey="name" tick={{fontSize: 9, fill: isDarkMode ? '#94a3b8' : '#64748b'}} interval={0} />
+                      <BarChart data={topProvincesChartData}>
+                        <XAxis dataKey="name" tick={{fontSize: 9, fill: isDarkMode ? '#94a3b8' : '#64748b'}} interval={0} angle={-30} textAnchor="end" height={50} />
                         <YAxis tick={{fontSize: 10, fill: isDarkMode ? '#94a3b8' : '#64748b'}} width={35} />
                         <Tooltip cursor={{fill: isDarkMode ? '#334155' : '#f1f5f9'}} contentStyle={{ backgroundColor: isDarkMode ? '#1e293b' : '#fff', borderColor: isDarkMode ? '#334155' : '#e2e8f0', color: isDarkMode ? '#f8fafc' : '#1e293b' }} />
                         <Bar dataKey="value" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={1500} animationEasing="ease-out">
-                          <Cell fill="#94A3B8" />
-                          <Cell fill="#60A5FA" />
-                          <Cell fill="#8B5CF6" />
-                          <Cell fill="#F59E0B" />
+                          {topProvincesChartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444'][index % 5]} />
+                          ))}
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>

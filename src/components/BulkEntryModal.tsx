@@ -54,15 +54,27 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess }: BulkEntry
   const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>, index: number, field: string) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const nextRowIndex = index + 1;
-      const nextInput = document.querySelector(`[data-rowindex="${nextRowIndex}"][data-col="${field}"]`) as HTMLElement;
+      const colNames = ['no_urut', 'tahun', 'nama_lengkap', 'jenis_kelamin', 'tempat_lahir', 'tanggal_lahir', 'alamat_asal', 'provinsi', 'no_telp', 'jenis_baptis', 'keterangan_baptis', 'tanggal_masuk', 'tanggal_keluar', 'foto_url'];
+      const currentColIndex = colNames.indexOf(field);
+      
+      let nextRowIndex = index;
+      let nextColName = field;
+
+      if (currentColIndex < colNames.length - 1) {
+        nextColName = colNames[currentColIndex + 1];
+      } else {
+        nextColName = colNames[0];
+        nextRowIndex = index + 1;
+      }
+      
+      const nextInput = document.querySelector(`[data-rowindex="${nextRowIndex}"][data-col="${nextColName}"]`) as HTMLElement;
       if (nextInput) {
         nextInput.focus();
       } else if (nextRowIndex === rows.length) {
         // Automatically add more rows if we hit the bottom
         handleAddRows(1);
         setTimeout(() => {
-          const addedInput = document.querySelector(`[data-rowindex="${nextRowIndex}"][data-col="${field}"]`) as HTMLElement;
+          const addedInput = document.querySelector(`[data-rowindex="${nextRowIndex}"][data-col="${nextColName}"]`) as HTMLElement;
           if (addedInput) addedInput.focus();
         }, 50);
       }
