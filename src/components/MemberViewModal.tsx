@@ -4,6 +4,7 @@ import { X, Download, User, Droplets, Clock, Image as ImageIcon } from 'lucide-r
 import { useTheme } from '../ThemeContext';
 import { formatDateDDMMYYYY, getDirectDriveLink, formatNameTitleCase } from '../lib/utils';
 import { toPng } from 'html-to-image';
+import { useToast } from '../ToastContext';
 
 interface MemberViewModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface MemberViewModalProps {
 }
 
 export default function MemberViewModal({ isOpen, onClose, member, ketuaJemaat = "Pdt. R.H. Siregar, M.Th" }: MemberViewModalProps) {
+  const { addToast } = useToast();
   const { isDarkMode } = useTheme();
   const printRef = useRef<HTMLDivElement>(null);
   const modalContentRef = useRef<HTMLDivElement>(null);
@@ -90,7 +92,7 @@ export default function MemberViewModal({ isOpen, onClose, member, ketuaJemaat =
       pdf.save(`Kartu_Jemaat_${formatNameTitleCase(member.nama_lengkap).replace(/\s+/g, '_')}.pdf`);
     } catch (e) {
        console.error("PDF generation failed:", e);
-       alert("Gagal membuat PDF. Coba kembali.");
+       addToast("Gagal membuat PDF. Coba kembali.", "error");
     } finally {
        setIsGeneratingPdf(false);
     }
@@ -108,7 +110,7 @@ export default function MemberViewModal({ isOpen, onClose, member, ketuaJemaat =
       link.click();
     } catch (e) {
        console.error("Image generation failed:", e);
-       alert("Gagal mengunduh gambar. Coba kembali.");
+       addToast("Gagal mengunduh gambar. Coba kembali.", "error");
     } finally {
        setIsGeneratingImg(false);
     }

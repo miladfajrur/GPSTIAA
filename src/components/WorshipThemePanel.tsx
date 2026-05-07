@@ -6,8 +6,10 @@ import { WorshipTheme } from "../types";
 import DateInputMask from "./DateInputMask";
 import { formatDateDDMMYYYY } from "../lib/utils";
 import BulkThemeModal from "./BulkThemeModal";
+import { useToast } from "../ToastContext";
 
 export default function WorshipThemePanel() {
+  const { addToast } = useToast();
   const [items, setItems] = useState<WorshipTheme[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -84,7 +86,7 @@ export default function WorshipThemePanel() {
       writeFile(wb, "Template_Bulk_TemaIbadah.xlsx");
     } catch (e) {
       console.error(e);
-      alert("Gagal mengunduh template");
+      addToast("Gagal mengunduh template", "error");
     }
   };
 
@@ -130,13 +132,13 @@ export default function WorshipThemePanel() {
 
       if (added > 0) {
         await batch.commit();
-        alert(`Berhasil mengimpor ${added} tema ibadah.`);
+        addToast(`Berhasil mengimpor ${added} tema ibadah.`, "success");
       } else {
-        alert("Tidak ada data valid yang ditemukan untuk diimpor.");
+        addToast("Tidak ada data valid yang ditemukan untuk diimpor.", "error");
       }
     } catch (err) {
       console.error("Error bulk import:", err);
-      alert("Gagal memproses file Excel.");
+      addToast("Gagal memproses file Excel.", "error");
     } finally {
       e.target.value = '';
     }
@@ -298,7 +300,7 @@ export default function WorshipThemePanel() {
       <BulkThemeModal
         isOpen={isBulkModalOpen}
         onClose={() => setIsBulkModalOpen(false)}
-        onSuccess={(count) => alert(`Berhasil mengimpor ${count} tema ibadah.`)}
+        onSuccess={(count) => addToast(`Berhasil mengimpor ${count} tema ibadah.`, "success")}
       />
     </div>
   );

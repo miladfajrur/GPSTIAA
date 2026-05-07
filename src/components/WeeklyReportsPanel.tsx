@@ -10,8 +10,10 @@ import DateInputMask from "./DateInputMask";
 import MonthYearInputMask from "./MonthYearInputMask";
 import { TableProperties } from "lucide-react";
 import * as XLSX from "xlsx";
+import { useToast } from "../ToastContext";
 
 export default function WeeklyReportsPanel() {
+  const { addToast } = useToast();
   const [reports, setReports] = useState<WeeklyReport[]>([]);
   const [ibadahFilter, setIbadahFilter] = useState<string>("Semua");
   const [isLoading, setIsLoading] = useState(true);
@@ -127,7 +129,7 @@ export default function WeeklyReportsPanel() {
         setReportToDelete(null);
       } catch (error) {
         console.error("Error deleting report: ", error);
-        alert("Gagal menghapus laporan.");
+        addToast("Gagal menghapus laporan.", "error");
       }
     }
   };
@@ -201,10 +203,10 @@ export default function WeeklyReportsPanel() {
           importedCount++;
         }
         
-        alert(`Berhasil mengimpor ${importedCount} data laporan mingguan.`);
+        addToast(`Berhasil mengimpor ${importedCount} data laporan mingguan.`, "success");
       } catch (error) {
         console.error("Error importing Excel:", error);
-        alert("Terjadi kesalahan saat memproses file Excel.");
+        addToast("Terjadi kesalahan saat memproses file Excel.", "error");
       } finally {
         setIsImporting(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
@@ -376,7 +378,7 @@ export default function WeeklyReportsPanel() {
     doc.save(`Laporan_Kebaktian_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (e) {
       console.error(e);
-      alert("Gagal mengunduh laporan PDF.");
+      addToast("Gagal mengunduh laporan PDF.", "error");
     }
   };
 
@@ -720,7 +722,7 @@ export default function WeeklyReportsPanel() {
         isOpen={isBulkModalOpen}
         onClose={() => setIsBulkModalOpen(false)}
         onSuccess={(count) => {
-          alert(`Input massal berhasil! ${count} laporan baru ditambahkan.`);
+          addToast(`Input massal berhasil! ${count} laporan baru ditambahkan.`, "success");
         }}
       />
 

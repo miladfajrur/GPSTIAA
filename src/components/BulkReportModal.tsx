@@ -4,6 +4,7 @@ import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { WeeklyReport } from '../types';
 import DateInputMask from './DateInputMask';
+import { useToast } from '../ToastContext';
 
 interface BulkReportModalProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ const parseRupiah = (value: string) => {
 };
 
 export default function BulkReportModal({ isOpen, onClose, onSuccess }: BulkReportModalProps) {
+  const { addToast } = useToast();
   const createEmptyRow = () => ({
     _localId: crypto.randomUUID(),
     tanggal_ibadah: "",
@@ -89,7 +91,7 @@ export default function BulkReportModal({ isOpen, onClose, onSuccess }: BulkRepo
     const validRows = rows.filter(r => r.nama_ibadah.trim() !== "" && r.tanggal_ibadah.trim() !== "");
     
     if (validRows.length === 0) {
-      alert("Tidak ada data valid untuk disimpan. Pastikan setidaknya kolom Tanggal dan Nama Ibadah terisi.");
+      addToast("Tidak ada data valid untuk disimpan. Pastikan setidaknya kolom Tanggal dan Nama Ibadah terisi.", "error");
       return;
     }
 
@@ -127,7 +129,7 @@ export default function BulkReportModal({ isOpen, onClose, onSuccess }: BulkRepo
       onClose();
     } catch (error) {
       console.error("Error saving bulk report entry:", error);
-      alert("Terjadi kesalahan saat menyimpan data ke server.");
+      addToast("Terjadi kesalahan saat menyimpan data ke server.", "error");
     } finally {
       setIsSaving(false);
     }

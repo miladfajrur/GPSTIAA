@@ -22,6 +22,13 @@ export type AuthUser = {
   username: string;
 };
 
+export interface ToastMessage {
+  id: string;
+  message: string;
+  type: 'success' | 'error' | 'info';
+}
+
+
 export interface WeeklyReport {
   id?: string;
   tenantId: string;

@@ -6,17 +6,20 @@ import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { v4 as uuidv4 } from "uuid";
 import DateInputMask from "./DateInputMask";
 import { compressImage, getDirectDriveLink } from "../lib/utils";
+import { useToast } from "../ToastContext";
 
 interface MemberModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (member: Member) => Promise<void>;
   initialData?: Member;
+  members?: Member[];
 }
 
 import { PROVINCES } from '../lib/constants';
 
-export default function MemberModal({ isOpen, onClose, onSave, initialData }: MemberModalProps) {
+export default function MemberModal({ isOpen, onClose, onSave, initialData, members }: MemberModalProps) {
+  const { addToast } = useToast();
   const defaultMember: Member = {
     nomor_anggota: "",
     nama_lengkap: "",
@@ -44,6 +47,7 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
   const [isCompressing, setIsCompressing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -74,10 +78,23 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
   const handleNomorChange = (newNo: string, newTahun: string) => {
     setNoUrut(newNo);
     setTahun(newTahun);
+    
+    let generatedNo = "";
     if (newNo || newTahun) {
-      setFormData(prev => ({ ...prev, nomor_anggota: `${newNo}/GPSTIAA/${newTahun}` }));
+      generatedNo = `${newNo}/GPSTIAA/${newTahun}`;
+    }
+    
+    setFormData(prev => ({ ...prev, nomor_anggota: generatedNo }));
+    
+    if (members && generatedNo) {
+      const isDuplicate = members.some(m => m.nomor_anggota === generatedNo && m.id !== initialData?.id);
+      if (isDuplicate) {
+        setDuplicateError(`Nomor Anggota ${generatedNo} sudah terdaftar. Harap gunakan nomor lain.`);
+      } else {
+        setDuplicateError(null);
+      }
     } else {
-      setFormData(prev => ({ ...prev, nomor_anggota: "" }));
+      setDuplicateError(null);
     }
   };
 
@@ -96,7 +113,7 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
 
   const processFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
-      alert("Hanya file gambar (foto) yang diperbolehkan.");
+      addToast("Hanya file gambar (foto) yang diperbolehkan.", "error");
       return;
     }
     
@@ -127,7 +144,7 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
         },
         (error) => {
           console.error("Upload failed", error);
-          alert("Gagal mengunggah foto. Silakan coba lagi.");
+          addToast("Gagal mengunggah foto. Silakan coba lagi.", "error");
           setIsUploading(false);
           setUploadProgress(null);
         },
@@ -150,7 +167,7 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
       console.error(error);
       setIsCompressing(false);
       setIsUploading(false);
-      alert("Terjadi kesalahan saat memproses gambar.");
+      addToast("Terjadi kesalahan saat memproses gambar.", "error");
     }
   };
 
@@ -193,7 +210,7 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isUploading || isCompressing) {
-       alert("Harap tunggu hingga foto diproses dan selesai diunggah.");
+       addToast("Harap tunggu hingga foto diproses dan selesai diunggah.", "error");
        return;
     }
     
@@ -206,7 +223,7 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
     } catch (error: any) {
       console.error(error);
       if (error?.message !== 'DUPLICATE_ID') {
-        alert("Terjadi kesalahan saat menyimpan data.");
+        addToast("Terjadi kesalahan saat menyimpan data.", "error");
       }
     } finally {
       setIsSubmitting(false);
@@ -239,7 +256,7 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
                   value={noUrut}
                   onChange={(e) => handleNomorChange(e.target.value, tahun)}
                   placeholder="mis. 1"
-                  className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                  className={`mt-1 block w-full rounded-lg border px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:outline-none focus:ring-1 ${duplicateError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-slate-300 dark:border-slate-600 focus:border-blue-600 focus:ring-blue-600'}`}
                 />
               </div>
               <div>
@@ -250,10 +267,16 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
                   value={tahun}
                   onChange={(e) => handleNomorChange(noUrut, e.target.value)}
                   placeholder="mis. 2016"
-                  className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                  className={`mt-1 block w-full rounded-lg border px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 focus:outline-none focus:ring-1 ${duplicateError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-slate-300 dark:border-slate-600 focus:border-blue-600 focus:ring-blue-600'}`}
                 />
               </div>
             </div>
+            {duplicateError && (
+              <div className="md:col-span-2 text-red-500 text-xs font-semibold mt-[-1rem]">
+                {duplicateError}
+              </div>
+            )}
+            
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Nama Lengkap</label>
               <input
@@ -458,8 +481,8 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData }: Me
           <button
             type="submit"
             form="member-form"
-            disabled={isSubmitting || isCompressing || isUploading}
-            className="rounded-lg bg-blue-800 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 disabled:opacity-50 flex items-center justify-center gap-2"
+            disabled={isSubmitting || isCompressing || isUploading || !!duplicateError}
+            className={`rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 flex items-center justify-center gap-2 ${!!duplicateError ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-800 hover:bg-blue-700 focus:ring-blue-600'} disabled:opacity-50`}
           >
             {isSubmitting ? (
               <>

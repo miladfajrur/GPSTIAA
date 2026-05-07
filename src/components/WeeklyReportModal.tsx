@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { X, Calendar, FileText, Users, Download, ArrowUpRight, ArrowDownRight, Edit3 } from "lucide-react";
 import { WeeklyReport } from "../types";
 import DateInputMask from "./DateInputMask";
+import { useToast } from "../ToastContext";
 
 interface WeeklyReportModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ const parseRupiah = (value: string) => {
 };
 
 export default function WeeklyReportModal({ isOpen, onClose, initialData, onSave }: WeeklyReportModalProps) {
+  const { addToast } = useToast();
   const [formData, setFormData] = useState<Partial<WeeklyReport>>({
     tanggal_ibadah: "",
     nama_ibadah: "",
@@ -79,7 +81,7 @@ export default function WeeklyReportModal({ isOpen, onClose, initialData, onSave
       onClose();
     } catch (error) {
       console.error("Error saving report: ", error);
-      alert("Gagal menyimpan data.");
+      addToast("Gagal menyimpan data.", "error");
     } finally {
       setIsSubmitting(false);
     }

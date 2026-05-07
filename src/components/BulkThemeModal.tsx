@@ -3,6 +3,7 @@ import { Save, TableProperties, Trash2, Plus } from 'lucide-react';
 import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import DateInputMask from './DateInputMask';
+import { useToast } from '../ToastContext';
 
 interface BulkThemeModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface BulkThemeModalProps {
 }
 
 export default function BulkThemeModal({ isOpen, onClose, onSuccess }: BulkThemeModalProps) {
+  const { addToast } = useToast();
   const createEmptyRow = () => ({
     _localId: crypto.randomUUID(),
     tanggal: "",
@@ -118,7 +120,7 @@ export default function BulkThemeModal({ isOpen, onClose, onSuccess }: BulkTheme
     const validRows = rows.filter(r => r.tema.trim() !== "" && r.tanggal.trim() !== "");
     
     if (validRows.length === 0) {
-      alert("Tidak ada data valid untuk disimpan. Pastikan setidaknya kolom Tanggal dan Tema terisi.");
+      addToast("Tidak ada data valid untuk disimpan. Pastikan setidaknya kolom Tanggal dan Tema terisi.", "error");
       return;
     }
 
@@ -164,7 +166,7 @@ export default function BulkThemeModal({ isOpen, onClose, onSuccess }: BulkTheme
       onClose();
     } catch (error) {
       console.error("Error saving bulk theme entry:", error);
-      alert("Terjadi kesalahan saat menyimpan data ke server.");
+      addToast("Terjadi kesalahan saat menyimpan data ke server.", "error");
     } finally {
       setIsSaving(false);
     }

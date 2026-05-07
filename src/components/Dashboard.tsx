@@ -6,6 +6,7 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveCo
 import { db } from "../lib/firebase";
 import { useAuth } from "../AuthContext";
 import { useTheme } from "../ThemeContext";
+import { useToast } from "../ToastContext";
 import { Member } from "../types";
 import { formatNameTitleCase, formatDateDDMMYYYY, getDirectDriveLink, getDaysToBirthday, isBirthdayInWeek } from "../lib/utils";
 
@@ -19,27 +20,13 @@ import DocumentPanel from "./DocumentPanel";
 import WorshipThemePanel from "./WorshipThemePanel";
 import MisiKaltaraPanel from "./MisiKaltaraPanel";
 
-export type ToastMessage = {
-  id: number;
-  message: string;
-  type: 'success' | 'error' | 'info';
-};
-
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const { isDarkMode, toggleDarkMode } = useTheme();
+  const { addToast } = useToast();
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Toast state
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const addToast = (message: string, type: 'success' | 'error' | 'info') => {
-    const id = Date.now() + Math.random();
-    setToasts(prev => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 4000);
-  };
   const isInitialLoad = useRef(true);
   
   // Modal states
@@ -589,14 +576,14 @@ export default function Dashboard() {
 
         if (errorMessages.length > 0) {
            const errorText = errorMessages.slice(0, 10).join("\n") + (errorMessages.length > 10 ? `\n...dan ${errorMessages.length - 10} kesalahan lainnya.` : "");
-           alert(`Impor dibatalkan karena ditemukan kesalahan pada data:\n\n${errorText}\n\nSilakan perbaiki file Excel Anda lalu coba lagi.`);
+          addToast(`Impor dibatalkan karena ditemukan kesalahan pada data:\n\n${errorText}\n\nSilakan perbaiki file Excel Anda lalu coba lagi.`, "error");
            setIsImporting(false);
            if (fileInputRef.current) fileInputRef.current.value = "";
            return;
         }
 
         if (validMembers.length === 0) {
-           alert("Tidak ada data yang valid untuk diimpor.");
+          addToast("Tidak ada data yang valid untuk diimpor.", "error");
            setIsImporting(false);
            if (fileInputRef.current) fileInputRef.current.value = "";
            return;
@@ -766,7 +753,7 @@ export default function Dashboard() {
       return acc;
     }, {} as Record<string, number>);
 
-    const entries = Object.entries(countMap).sort((a, b) => b[1] - a[1]);
+    const entries = Object.entries(countMap).sort((a, b) => (b[1] as number) - (a[1] as number));
     return entries.slice(0, 5).map(e => ({ name: e[0].length > 10 ? e[0].substring(0, 10) + '...' : e[0], value: e[1] }));
   }, [members]);
 
@@ -2049,6 +2036,7 @@ export default function Dashboard() {
         onClose={() => setIsModalOpen(false)}
         initialData={selectedMember}
         onSave={handleSaveMember}
+        members={members}
       />
       
       <MemberViewModal
@@ -2064,6 +2052,7 @@ export default function Dashboard() {
         onSuccess={(count) => {
           addToast(`Input massal berhasil! ${count} jemaat baru ditambahkan.`, 'success');
         }}
+        members={members}
       />
 
       {/* Delete Confirmation Modal */}
@@ -2091,30 +2080,6 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-
-      {/* Toast Notifications */}
-      <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2">
-        {toasts.map(toast => (
-          <div 
-            key={toast.id} 
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg text-sm text-white animate-in slide-in-from-right-8 fade-in duration-300 pointer-events-auto ${
-              toast.type === 'success' ? 'bg-emerald-600' : 
-              toast.type === 'error' ? 'bg-red-600' : 'bg-blue-600'
-            }`}
-          >
-            {toast.type === 'success' && <CheckCircle className="w-5 h-5 shrink-0" />}
-            {toast.type === 'error' && <AlertCircle className="w-5 h-5 shrink-0" />}
-            {toast.type === 'info' && <Info className="w-5 h-5 shrink-0" />}
-            <span className="font-medium whitespace-pre-wrap">{toast.message}</span>
-            <button 
-              onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
-              className="p-1 hover:bg-white/20 rounded-full transition-colors ml-2"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        ))}
-      </div>
 
       {/* Full Screen Greeting Modal */}
       {greetingMessage && (
