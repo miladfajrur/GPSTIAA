@@ -189,9 +189,10 @@ export default function Dashboard() {
       else if (hour >= 15 && hour < 18) time = "Sore";
       
       let message = `Selamat ${time} ${user.username}`;
-      if (user.username === "gpsttiaa") message = `Selamat ${time} admin GPSTTIAA`;
+      if (user.username === "gpsttiaa") message = `Selamat ${time} Administrator`;
       else if (user.username === "fajrur") message = `Selamat ${time} Fajrur`;
       else if (user.username === "anabk") message = `Selamat ${time} Dr. Ana Budi Kristiani, S.Sn., M.M`;
+      else if (user.username === "BEM") message = `Selamat ${time} Badan Exclusive Mahasiswa`;
 
       setGreetingMessage(message);
       sessionStorage.setItem(`greeted_${user.username}`, "true");
@@ -957,7 +958,7 @@ export default function Dashboard() {
               <X className="w-5 h-5" />
             </button>
           </div>
-          <nav className="space-y-1 flex-1">
+          <nav className="space-y-1 flex-1 overflow-y-auto min-h-0 pr-2 custom-scrollbar">
             {renderNavLinks()}
           </nav>
           <div className="mt-auto pt-6 border-t border-white border-opacity-10 flex flex-col gap-4">
@@ -1176,7 +1177,7 @@ export default function Dashboard() {
           )}
         </header>
 
-        <div className="p-6 flex-1 flex flex-col gap-6 overflow-hidden">
+        <div className={`flex-1 flex flex-col overflow-hidden min-h-0 ${activeTab === 'overview' ? '' : 'p-6 gap-6'}`}>
           {viewingProfileId && canViewProfile ? (
             <MemberProfile 
               member={members.find(m => m.id === viewingProfileId)!} 

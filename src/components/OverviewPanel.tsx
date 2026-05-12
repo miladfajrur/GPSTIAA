@@ -96,11 +96,11 @@ export default function OverviewPanel({ members, onNavigate, user }: OverviewPan
   ];
 
   return (
-    <div className="p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8 bg-slate-50/50 dark:bg-slate-900/20 min-h-full">
+    <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8 bg-slate-50/50 dark:bg-slate-900/20 w-full min-h-0">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Selamat Datang, {user?.username === 'anabk' ? 'Dr. Ana Budi Kristiani, S.Sn., M.M' : (user?.username === 'fajrur' ? 'Milad Fajrur' : user?.username || 'Administrator')}! 👋
+            Selamat Datang, {user?.username === 'anabk' ? 'Dr. Ana Budi Kristiani, S.Sn., M.M' : (user?.username === 'fajrur' ? 'Fajrur' : (user?.username === 'BEM' ? 'Badan Exclusive Mahasiswa' : (user?.username === 'gpsttiaa' ? 'Administrator' : user?.username || 'Administrator')))}! 👋
           </h1>
           <p className="mt-2 text-slate-500 dark:text-slate-400">
             Berikut ini adalah tautan cepat untuk mengakses fitur aplikasi GPSTIAA.
