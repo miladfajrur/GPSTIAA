@@ -437,12 +437,12 @@ export default function Dashboard() {
     // Titling
     doc.setFontSize(22);
     doc.setFont("helvetica", "bold");
-    doc.text("Laporan Induk Data Jemaat GPSTTIAA", 95, 52); // Improved title
+    doc.text("Laporan Induk Data Jemaat GPSTTIAA", 150, 52); // Improved title
     
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
-    doc.text(`Total Keseluruhan Jemaat: ${members.length} Jiwa  |  Tanggal Unduh: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, 95, 70);
+    doc.text(`Total Keseluruhan Jemaat: ${members.length} Jiwa  |  Tanggal Unduh: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, 150, 70);
     doc.setTextColor(0, 0, 0);
 
     const tableColumns = ["No", "No. Anggota", "Nama Lengkap", "L/P", "Tempat, Tanggal Lahir", "No. Telp", "Alamat Asal", "Provinsi", "Jenis Baptis", "Tgl Masuk", "Tgl Atestasi"];
@@ -1354,8 +1354,24 @@ export default function Dashboard() {
                                 )}
                               </td>
                               <td className="p-3 font-semibold text-slate-800 dark:text-slate-100">
-                                <div>{formatNameTitleCase(member.nama_lengkap)}</div>
+                                <div>
+                                  {user?.username !== 'BEM' ? (
+                                    <button 
+                                      onClick={() => {
+                                        setSelectedMember(member);
+                                        setIsModalOpen(true);
+                                      }}
+                                      className="text-left hover:text-blue-600 dark:hover:text-blue-400 hover:underline focus:outline-none transition-colors"
+                                      title="Ketuk untuk Edit Data"
+                                    >
+                                      {formatNameTitleCase(member.nama_lengkap)}
+                                    </button>
+                                  ) : (
+                                    formatNameTitleCase(member.nama_lengkap)
+                                  )}
+                                </div>
                                 <span className={`inline-block mt-0.5 px-1.5 py-px rounded text-[9px] font-bold uppercase tracking-wider ${!member.tanggal_keluar ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'}`}>
+
                                   {!member.tanggal_keluar ? 'Aktif' : 'Atestasi'}
                                 </span>
                               </td>
