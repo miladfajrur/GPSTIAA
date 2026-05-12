@@ -13,6 +13,8 @@ import { formatNameTitleCase, formatDateDDMMYYYY, getDirectDriveLink, getDaysToB
 import MemberModal from "./MemberModal";
 import MemberViewModal from "./MemberViewModal";
 import BulkEntryModal from "./BulkEntryModal";
+import DataValidationModal from "./DataValidationModal";
+import OverviewPanel from "./OverviewPanel";
 import WeeklyReportsPanel from "./WeeklyReportsPanel";
 import MemberProfile from "./MemberProfile";
 import MediaRepoPanel from "./MediaRepoPanel";
@@ -37,9 +39,10 @@ export default function Dashboard() {
   const [memberToView, setMemberToView] = useState<Member | null>(null);
 
   const [isBulkEntryOpen, setIsBulkEntryOpen] = useState(false);
+  const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
 
   const [activeTab, setActiveTab] = useState(() => {
-    return user?.username === 'BEM' ? 'birthdays' : 'members';
+    return user?.username === 'BEM' ? 'birthdays' : 'overview';
   });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [birthdayView, setBirthdayView] = useState<'grid' | 'list'>('grid');
@@ -267,14 +270,14 @@ export default function Dashboard() {
     const isNew = !id;
 
     if (isNew && dataToSave.nomor_anggota) {
-        const isDuplicate = members.some((m) => m.nomor_anggota === dataToSave.nomor_anggota);
+        const isDuplicate = members.some((m) => m.nomor_anggota?.toLowerCase() === dataToSave.nomor_anggota?.toLowerCase());
         if (isDuplicate) {
             addToast(`ID No. Anggota ${dataToSave.nomor_anggota} sudah ada di database.`, 'error');
             throw new Error('DUPLICATE_ID');
         }
     } else if (!isNew && dataToSave.nomor_anggota) {
         // Ensure another person doesn't have same ID
-        const isDuplicate = members.some((m) => m.nomor_anggota === dataToSave.nomor_anggota && m.id !== id);
+        const isDuplicate = members.some((m) => m.nomor_anggota?.toLowerCase() === dataToSave.nomor_anggota?.toLowerCase() && m.id !== id);
         if (isDuplicate) {
             addToast(`ID No. Anggota ${dataToSave.nomor_anggota} sudah dipakai oleh jemaat lain.`, 'error');
             throw new Error('DUPLICATE_ID');
@@ -521,7 +524,7 @@ export default function Dashboard() {
         const rows = XLSX.utils.sheet_to_json<any>(worksheet);
 
         const validMembers: Member[] = [];
-        const existingNomor = new Set(members.map(m => m.nomor_anggota).filter(n => n));
+        const existingNomor = new Set(members.map(m => m.nomor_anggota?.toLowerCase()).filter(n => n));
         const currentCsvNomor = new Set<string>();
         const errorMessages: string[] = [];
 
@@ -538,17 +541,17 @@ export default function Dashboard() {
              continue;
           }
 
-          if (existingNomor.has(nomor_anggota)) {
+          if (existingNomor.has(nomor_anggota.toLowerCase())) {
             errorMessages.push(`Baris ${rowNum}: Nomor Anggota '${nomor_anggota}' sudah terdaftar di sistem.`);
             continue;
           }
 
-          if (currentCsvNomor.has(nomor_anggota)) {
+          if (currentCsvNomor.has(nomor_anggota.toLowerCase())) {
             errorMessages.push(`Baris ${rowNum}: Nomor Anggota '${nomor_anggota}' duplikat di dalam file excel.`);
             continue;
           }
 
-          currentCsvNomor.add(nomor_anggota);
+          currentCsvNomor.add(nomor_anggota.toLowerCase());
           
           let formattedTanggalLahir = (row["Tanggal Lahir"] || "").toString().trim();
           if (formattedTanggalLahir.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
@@ -744,6 +747,49 @@ export default function Dashboard() {
     return entries;
   }, [members, mapStatusFilter, mapSearchQuery, mapSortBy]);
 
+  const ageChartData = useMemo(() => {
+    let anak = 0, remaja = 0, pemuda = 0, dewasa = 0, lansia = 0, tidakDiketahui = 0;
+    
+    // Consider only active members, or all members? Let's use active members just to be safe,
+    // or all members like the gender. Gender uses `members`. I'll use `members`.
+    members.forEach(m => {
+      if (!m.tanggal_lahir) {
+        tidakDiketahui++;
+        return;
+      }
+      
+      const parts = m.tanggal_lahir.split('-');
+      if (parts.length !== 3) {
+        tidakDiketahui++;
+        return;
+      }
+      
+      const birthDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const mMonth = today.getMonth() - birthDate.getMonth();
+      if (mMonth < 0 || (mMonth === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      
+      if (age < 0) tidakDiketahui++;
+      else if (age <= 12) anak++;
+      else if (age <= 17) remaja++;
+      else if (age <= 30) pemuda++;
+      else if (age <= 59) dewasa++;
+      else lansia++;
+    });
+
+    return [
+      { name: 'Anak (0-12)', value: anak },
+      { name: 'Remaja (13-17)', value: remaja },
+      { name: 'Pemuda (18-30)', value: pemuda },
+      { name: 'Dewasa (31-59)', value: dewasa },
+      { name: 'Lansia (60+)', value: lansia },
+      { name: 'Tidak Diketahui', value: tidakDiketahui }
+    ].filter(item => item.value > 0);
+  }, [members]);
+
   const topProvincesChartData = useMemo(() => {
     const countMap = members.reduce((acc, m) => {
       if (m.provinsi && m.provinsi.trim() !== '') {
@@ -770,6 +816,8 @@ export default function Dashboard() {
   useEffect(() => {
     if (user?.username === 'BEM') {
       setActiveTab('birthdays');
+    } else {
+      setActiveTab('overview');
     }
   }, [user]);
 
@@ -793,6 +841,13 @@ export default function Dashboard() {
 
     return (
     <>
+      <button 
+        onClick={() => handleTabClick("overview")}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'overview' ? 'bg-white/10 text-white font-medium opacity-100' : 'opacity-60 hover:opacity-100'}`}
+      >
+        {activeTab === 'overview' ? <span className="w-2 h-2 rounded-full bg-blue-400"></span> : <LayoutGrid className="w-4 h-4" />}
+        Dashboard Utama
+      </button>
       <button 
         onClick={() => handleTabClick("members")}
         className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all focus:outline-none ${activeTab === 'members' ? 'bg-white/10 text-white font-medium opacity-100' : 'opacity-60 hover:opacity-100'}`}
@@ -943,6 +998,7 @@ export default function Dashboard() {
             <h2 className="font-semibold text-base md:text-lg text-slate-800 dark:text-slate-100 truncate">
               {viewingProfileId && canViewProfile ? "Profil Anggota" : (
                 <>
+                  {activeTab === 'overview' && "Dashboard Utama"}
                   {activeTab === 'members' && "Data Anggota"}
                   {activeTab === 'birthdays' && "Ulang Tahun Anggota"}
                   {activeTab === 'reports' && "Laporan Mingguan"}
@@ -1093,6 +1149,12 @@ export default function Dashboard() {
                       >
                         <TableProperties className="h-3.5 w-3.5" /> Input Massal (Grid)
                       </button>
+                      <button
+                        onClick={() => setIsValidationModalOpen(true)}
+                        className="w-full text-left px-3 py-2 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-md transition-colors flex items-center gap-2"
+                      >
+                        <AlertCircle className="h-3.5 w-3.5" /> Pemeriksaan Data
+                      </button>
                       <div className="h-px bg-slate-100 dark:bg-slate-700/50 my-1"></div>
                       <button
                         onClick={handleExportExcel}
@@ -1122,6 +1184,9 @@ export default function Dashboard() {
             />
           ) : (
             <>
+              {activeTab === 'overview' && (
+                <OverviewPanel members={members} onNavigate={handleTabClick} user={user} />
+              )}
               {activeTab === 'members' && (
                 <div className="flex-1 flex flex-col gap-6 overflow-hidden min-h-0">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 shrink-0">
@@ -1231,7 +1296,7 @@ export default function Dashboard() {
                         <th className="p-3">No. Anggota</th>
                         <th className="p-3">Nama Lengkap</th>
                         <th className="p-3">JK</th>
-                        <th className="p-3">TTL</th>
+                        <th className="p-3">TTL / Usia</th>
                         <th className="p-3">No. Telp</th>
                         <th className="p-3">Alamat Asal</th>
                         <th className="p-3">Provinsi</th>
@@ -1299,8 +1364,8 @@ export default function Dashboard() {
                                    if (!hasPassed) currentAge -= 1;
                                    if (currentAge < 0) currentAge = 0;
                                    return (
-                                     <span className="inline-block mt-0.5 text-[10px] text-slate-500 font-medium">
-                                       (Usia {currentAge} thn)
+                                     <span className="inline-block mt-1 text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">
+                                       {currentAge} Tahun
                                      </span>
                                    );
                                 })()}
@@ -1468,7 +1533,56 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Sub-tabs untuk Bulan Ini vs Terdekat */}
+                {/* HIGHLIGHT ULANG TAHUN TERDEKAT */}
+                {(() => {
+                  const closest = members
+                    .filter(m => birthdayStatusFilter === 'Aktif' ? !m.tanggal_keluar : birthdayStatusFilter === 'Keluar' ? !!m.tanggal_keluar : true)
+                    .filter(m => m.tanggal_lahir)
+                    .map(m => ({ ...m, daysLeft: getDaysToBirthday(m.tanggal_lahir) }))
+                    .filter(m => m.daysLeft !== null)
+                    .sort((a, b) => (a.daysLeft as number) - (b.daysLeft as number))[0];
+
+                  if (!closest) return null;
+
+                  const days = closest.daysLeft as number;
+                  const isToday = days === 0;
+                  const birthDateObj = new Date(closest.tanggal_lahir);
+                  const todayDate = new Date();
+                  todayDate.setHours(0, 0, 0, 0);
+                  const nextBirthdayThisYear = new Date(todayDate.getFullYear(), birthDateObj.getMonth(), birthDateObj.getDate());
+                  const hasPassed = nextBirthdayThisYear.getTime() < todayDate.getTime();
+                  const currentAge = todayDate.getFullYear() - birthDateObj.getFullYear();
+                  const nextAge = currentAge + (hasPassed ? 1 : 0);
+
+                  return (
+                    <div className={`mt-6 p-4 rounded-xl border ${isToday ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800' : 'bg-white border-slate-200 dark:bg-slate-800 dark:border-slate-700'} shadow-sm flex items-center justify-between`}>
+                      <div className="flex items-center gap-4">
+                        <div className={`w-14 h-14 rounded-full flex items-center justify-center shrink-0 ${isToday ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 border border-blue-200 dark:border-blue-700' : 'bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-500 border border-slate-200 dark:border-slate-600'} relative overflow-hidden`}>
+                          {closest.foto_url ? (
+                            <img src={getDirectDriveLink(closest.foto_url)} alt={closest.nama_lengkap} className="w-full h-full object-cover absolute inset-0" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                          ) : <Gift className="w-6 h-6" />}
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                            {formatNameTitleCase(closest.nama_lengkap)}
+                            {isToday && <span className="text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 px-2 py-0.5 rounded-full uppercase tracking-widest animate-pulse">Berulang Tahun Hari Ini!</span>}
+                          </h3>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            {birthDateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })} • Usia Mendatang: <span className="font-bold">{nextAge}</span> thn
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className={`text-2xl font-black ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-slate-700 dark:text-slate-200'}`}>
+                          {isToday ? 'HARI INI' : `${days} Hari`}
+                        </div>
+                        {!isToday && <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-0.5">Lagi</div>}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+              {/* Sub-tabs untuk Bulan Ini vs Terdekat */}
                 <div className="flex px-4 md:px-6 pt-2 h-10 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-x-auto whitespace-nowrap scrollbar-hide">
                   <div className="flex space-x-4 h-full">
                     <button
@@ -1756,7 +1870,7 @@ export default function Dashboard() {
           {activeTab === 'stats' && (
             <div className="flex-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] p-4 sm:p-6 overflow-y-auto">
               <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 mb-4 sm:mb-6">Statistik Jemaat</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
                 <div className="bg-slate-50 dark:bg-slate-800/80 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
                   <h3 className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 text-center mb-4 uppercase tracking-wider">Demografi Kelamin</h3>
                   <div className="h-56 sm:h-64">
@@ -1780,6 +1894,24 @@ export default function Dashboard() {
                   <div className="flex justify-center gap-4 mt-2 text-xs text-slate-600 dark:text-slate-300">
                     <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#1E3A8A]"></span>Pria</div>
                     <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#10B981]"></span>Wanita</div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 dark:bg-slate-800/80 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                  <h3 className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 text-center mb-4 uppercase tracking-wider">Demografi Usia</h3>
+                  <div className="h-56 sm:h-64 -ml-4 sm:-ml-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={ageChartData}>
+                        <XAxis dataKey="name" tick={{fontSize: 9, fill: isDarkMode ? '#94a3b8' : '#64748b'}} interval={0} angle={-30} textAnchor="end" height={50} />
+                        <YAxis tick={{fontSize: 10, fill: isDarkMode ? '#94a3b8' : '#64748b'}} width={35} />
+                        <Tooltip cursor={{fill: isDarkMode ? '#334155' : '#f1f5f9'}} contentStyle={{ backgroundColor: isDarkMode ? '#1e293b' : '#fff', borderColor: isDarkMode ? '#334155' : '#e2e8f0', color: isDarkMode ? '#f8fafc' : '#1e293b' }} />
+                        <Bar dataKey="value" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={1500} animationEasing="ease-out">
+                          {ageChartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={['#6366F1', '#8B5CF6', '#EC4899', '#F43F5E', '#F97316', '#94A3B8'][index % 6]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
 
@@ -2053,6 +2185,16 @@ export default function Dashboard() {
           addToast(`Input massal berhasil! ${count} jemaat baru ditambahkan.`, 'success');
         }}
         members={members}
+      />
+
+      <DataValidationModal
+        isOpen={isValidationModalOpen}
+        onClose={() => setIsValidationModalOpen(false)}
+        members={members}
+        onEditMember={(member) => {
+          setSelectedMember(member);
+          setIsModalOpen(true);
+        }}
       />
 
       {/* Delete Confirmation Modal */}

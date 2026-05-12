@@ -81,13 +81,13 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData, memb
     
     let generatedNo = "";
     if (newNo || newTahun) {
-      generatedNo = `${newNo}/GPSTIAA/${newTahun}`;
+      generatedNo = `${newNo.trim()}/GPSTIAA/${newTahun.trim()}`;
     }
     
     setFormData(prev => ({ ...prev, nomor_anggota: generatedNo }));
     
     if (members && generatedNo) {
-      const isDuplicate = members.some(m => m.nomor_anggota === generatedNo && m.id !== initialData?.id);
+      const isDuplicate = members.some(m => m.nomor_anggota?.toLowerCase() === generatedNo.toLowerCase() && m.id !== initialData?.id);
       if (isDuplicate) {
         setDuplicateError(`Nomor Anggota ${generatedNo} sudah terdaftar. Harap gunakan nomor lain.`);
       } else {
@@ -209,6 +209,10 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData, memb
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (duplicateError) {
+      addToast(duplicateError, "error");
+      return;
+    }
     if (isUploading || isCompressing) {
        addToast("Harap tunggu hingga foto diproses dan selesai diunggah.", "error");
        return;

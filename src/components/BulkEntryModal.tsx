@@ -143,14 +143,14 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess, members = [
     // Validation for duplicate Nomor Anggota
     const generatedNomorList = validRows.map(row => {
       let nomorAnggota = "";
-      if (row.no_urut && row.tahun) nomorAnggota = `${row.no_urut}/GPSTIAA/${row.tahun}`;
-      else if (row.no_urut) nomorAnggota = row.no_urut;
+      if (row.no_urut && row.tahun) nomorAnggota = `${row.no_urut.trim()}/GPSTIAA/${row.tahun.trim()}`;
+      else if (row.no_urut) nomorAnggota = row.no_urut.trim();
       return { id: row._localId, nomorAnggota, name: row.nama_lengkap };
     }).filter(item => item.nomorAnggota !== "");
 
     // 1. Check duplicates within the current validRows being submitted
     const internalDuplicates = generatedNomorList.filter((item, index, self) => 
-      index !== self.findIndex(t => t.nomorAnggota === item.nomorAnggota)
+      index !== self.findIndex(t => t.nomorAnggota.toLowerCase() === item.nomorAnggota.toLowerCase())
     );
     if (internalDuplicates.length > 0) {
       addToast(`Terdapat duplikasi No. Anggota pada data yang dimasukkan: ${internalDuplicates.map(d => d.nomorAnggota).join(", ")}. Mohon perbaiki.`, "error");
@@ -159,7 +159,7 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess, members = [
 
     // 2. Check duplicates with existing members
     const existingDuplicates = generatedNomorList.filter(item => 
-      members.some(m => m.nomor_anggota === item.nomorAnggota)
+      members.some(m => m.nomor_anggota?.toLowerCase() === item.nomorAnggota.toLowerCase())
     );
     if (existingDuplicates.length > 0) {
       addToast(`No. Anggota berikut sudah terdaftar di database: ${existingDuplicates.map(d => d.nomorAnggota).join(", ")} (Nama: ${existingDuplicates.map(d => d.name).join(", ")}). Mohon gunakan nomor yang berbeda.`, "error");
