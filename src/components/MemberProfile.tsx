@@ -47,7 +47,7 @@ export default function MemberProfile({ member, onBack }: MemberProfileProps) {
               <div className="w-32 h-32 rounded-full border-4 border-white dark:border-slate-800 bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0 shadow-lg relative z-10 overflow-hidden">
                   <User className="w-12 h-12 text-slate-400 dark:text-slate-500 absolute z-0" />
                   {member.foto_url && (
-                    <img src={getDirectDriveLink(member.foto_url)} alt={member.nama_lengkap} className="w-full h-full object-cover relative z-10" crossOrigin="anonymous" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                    <img src={getDirectDriveLink(member.foto_url)} alt={member.nama_lengkap} className="w-full h-full object-cover relative z-10" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                   )}
               </div>
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useDeferredValue } from "react";
-import { collection, onSnapshot, query, setDoc, doc, deleteDoc, serverTimestamp, orderBy, where, getCountFromServer } from "firebase/firestore";
+import { collection, onSnapshot, query, setDoc, doc, deleteDoc, serverTimestamp, orderBy, where, getCountFromServer, writeBatch } from "firebase/firestore";
 import { ArrowLeft, Download, Plus, Search, LogOut, Edit2, Trash2, Filter, Users, PieChart as PieChartIcon, MapPin, Settings, Upload, Menu, UserCheck, CheckCircle, AlertCircle, Info, X, ChevronDown, MoreVertical, Gift, Bell, Eye, TableProperties, LayoutGrid, List, Sun, Moon, Camera, Folder, BookOpen, Globe, RefreshCw } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
@@ -593,16 +593,24 @@ export default function Dashboard() {
            return;
         }
 
+        const chunkSize = 500;
         let importedCount = 0;
-        for (const memberData of validMembers) {
-          const docId = doc(collection(db, "members")).id;
-          await setDoc(doc(db, "members", docId), {
-            ...memberData,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          });
-          importedCount++;
+        
+        for (let i = 0; i < validMembers.length; i += chunkSize) {
+          const chunk = validMembers.slice(i, i + chunkSize);
+          const batch = writeBatch(db);
+          for (const memberData of chunk) {
+            const newDocRef = doc(collection(db, "members"));
+            batch.set(newDocRef, {
+              ...memberData,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            });
+            importedCount++;
+          }
+          await batch.commit();
         }
+        
         addToast(`Impor data Excel berhasil! ${importedCount} jemaat telah ditambahkan.`, 'success');
       } catch (error) {
         console.error("Error importing:", error);
@@ -1534,54 +1542,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* HIGHLIGHT ULANG TAHUN TERDEKAT */}
-                {(() => {
-                  const closest = members
-                    .filter(m => birthdayStatusFilter === 'Aktif' ? !m.tanggal_keluar : birthdayStatusFilter === 'Keluar' ? !!m.tanggal_keluar : true)
-                    .filter(m => m.tanggal_lahir)
-                    .map(m => ({ ...m, daysLeft: getDaysToBirthday(m.tanggal_lahir) }))
-                    .filter(m => m.daysLeft !== null)
-                    .sort((a, b) => (a.daysLeft as number) - (b.daysLeft as number))[0];
 
-                  if (!closest) return null;
-
-                  const days = closest.daysLeft as number;
-                  const isToday = days === 0;
-                  const birthDateObj = new Date(closest.tanggal_lahir);
-                  const todayDate = new Date();
-                  todayDate.setHours(0, 0, 0, 0);
-                  const nextBirthdayThisYear = new Date(todayDate.getFullYear(), birthDateObj.getMonth(), birthDateObj.getDate());
-                  const hasPassed = nextBirthdayThisYear.getTime() < todayDate.getTime();
-                  const currentAge = todayDate.getFullYear() - birthDateObj.getFullYear();
-                  const nextAge = currentAge + (hasPassed ? 1 : 0);
-
-                  return (
-                    <div className={`mt-6 p-4 rounded-xl border ${isToday ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800' : 'bg-white border-slate-200 dark:bg-slate-800 dark:border-slate-700'} shadow-sm flex items-center justify-between`}>
-                      <div className="flex items-center gap-4">
-                        <div className={`w-14 h-14 rounded-full flex items-center justify-center shrink-0 ${isToday ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 border border-blue-200 dark:border-blue-700' : 'bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-500 border border-slate-200 dark:border-slate-600'} relative overflow-hidden`}>
-                          {closest.foto_url ? (
-                            <img src={getDirectDriveLink(closest.foto_url)} alt={closest.nama_lengkap} className="w-full h-full object-cover absolute inset-0" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                          ) : <Gift className="w-6 h-6" />}
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                            {formatNameTitleCase(closest.nama_lengkap)}
-                            {isToday && <span className="text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 px-2 py-0.5 rounded-full uppercase tracking-widest animate-pulse">Berulang Tahun Hari Ini!</span>}
-                          </h3>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                            {birthDateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })} • Usia Mendatang: <span className="font-bold">{nextAge}</span> thn
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className={`text-2xl font-black ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-slate-700 dark:text-slate-200'}`}>
-                          {isToday ? 'HARI INI' : `${days} Hari`}
-                        </div>
-                        {!isToday && <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-0.5">Lagi</div>}
-                      </div>
-                    </div>
-                  );
-                })()}
 
               {/* Sub-tabs untuk Bulan Ini vs Terdekat */}
                 <div className="flex px-4 md:px-6 pt-2 h-10 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-x-auto whitespace-nowrap scrollbar-hide">
@@ -1980,7 +1941,7 @@ export default function Dashboard() {
                           >
                              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-slate-200 dark:bg-slate-700 flex-shrink-0 flex items-center justify-center relative overflow-hidden font-bold">
                                {m.foto_url ? (
-                                  <img src={getDirectDriveLink(m.foto_url)} alt={m.nama_lengkap} className="w-full h-full object-cover" crossOrigin="anonymous" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                                  <img src={getDirectDriveLink(m.foto_url)} alt={m.nama_lengkap} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                                ) : (
                                   <span className="text-slate-500 dark:text-slate-400">{m.nama_lengkap.charAt(0).toUpperCase()}</span>
                                )}

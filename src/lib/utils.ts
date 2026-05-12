@@ -80,8 +80,8 @@ export const parseMonthYearInput = (value: string) => {
 };
 
 
-// Image Compression (Agresif: Lebar max 600px, Kualitas 0.6 untuk hasil < 300KB)
-export const compressImage = (file: File, maxWidth = 600, quality = 0.6): Promise<File> => {
+// Image Compression (Agresif: Lebar max 400px, Kualitas 0.5 untuk hasil super cepat dan kecil)
+export const compressImage = (file: File, maxWidth = 400, quality = 0.5): Promise<File> => {
   return new Promise((resolve) => {
     if (!file.type.startsWith('image/')) {
       return resolve(file);
@@ -196,6 +196,10 @@ export const isBirthdayInWeek = (birthDateStr: string, offsetWeeks: number) => {
 export const getDirectDriveLink = (url: string | null | undefined): string => {
   if (!url) return '';
   
+  if (url.includes('firebasestorage.googleapis.com') || url.startsWith('blob:') || url.startsWith('data:')) {
+    return url;
+  }
+
   let finalUrl = url;
   // Regex to extract the FILE_ID from standard Google Drive sharing links
   const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
@@ -203,9 +207,8 @@ export const getDirectDriveLink = (url: string | null | undefined): string => {
     const fileId = match[1];
     // Convert to Drive's content link
     finalUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+    return `https://wsrv.nl/?url=${encodeURIComponent(finalUrl)}&output=webp&we`;
   }
   
-  // Menggunakan wsrv.nl (Imageserv proxy gratis) sebagai jembatan Bypass CORS
-  // Supaya fungsi "html-to-image" saat Download tidak mengira ini serangan "Tainted Canvas"
-  return `https://wsrv.nl/?url=${encodeURIComponent(finalUrl)}&output=webp&we`;
+  return url;
 };

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Users, Gift, UserCheck, MapPin, PieChart, Camera, Folder, BookOpen, Globe, Settings, ArrowRight } from 'lucide-react';
 import { Member } from '../types';
+import { getDirectDriveLink } from '../lib/utils';
 
 interface OverviewPanelProps {
   members: Member[];
@@ -145,7 +146,7 @@ export default function OverviewPanel({ members, onNavigate, user }: OverviewPan
                   {birthdaysToday.map((m: any, i: number) => (
                     <div key={i} className="flex items-center gap-4 bg-white/60 dark:bg-slate-900/40 p-3 rounded-xl border border-rose-100 dark:border-rose-800/30">
                       {m.foto_url ? (
-                        <img src={m.foto_url} alt={m.nama_lengkap} className="w-12 h-12 rounded-full object-cover shadow-sm bg-white" />
+                        <img src={getDirectDriveLink(m.foto_url)} alt={m.nama_lengkap} className="w-12 h-12 rounded-full object-cover shadow-sm bg-white" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                       ) : (
                         <div className="w-12 h-12 rounded-full bg-rose-200 dark:bg-rose-800 flex items-center justify-center text-rose-700 dark:text-rose-300 font-bold text-lg shadow-sm">
                           {m.nama_lengkap?.charAt(0) || '?'}
@@ -184,7 +185,7 @@ export default function OverviewPanel({ members, onNavigate, user }: OverviewPan
                   return (
                     <div key={i} className="flex items-center gap-4 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
                       {m.foto_url ? (
-                        <img src={m.foto_url} alt={m.nama_lengkap} className="w-10 h-10 rounded-full object-cover shadow-sm bg-white" />
+                        <img src={getDirectDriveLink(m.foto_url)} alt={m.nama_lengkap} className="w-10 h-10 rounded-full object-cover shadow-sm bg-white" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                       ) : (
                         <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold shadow-sm">
                           {m.nama_lengkap?.charAt(0) || '?'}

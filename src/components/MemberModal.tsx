@@ -122,8 +122,8 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData, memb
     setIsUploading(true);
 
     try {
-      // 1. Compress Image (Max 800px, 70% quality)
-      const compressedFile = await compressImage(file, 800, 0.7);
+      // 1. Compress Image (Max 400px, 50% quality)
+      const compressedFile = await compressImage(file, 400, 0.5);
       
       setSelectedFile(compressedFile);
       setPreviewUrl(URL.createObjectURL(compressedFile));
@@ -427,7 +427,7 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData, memb
                 <div className="w-24 h-32 bg-slate-100 dark:bg-slate-800 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg flex items-center justify-center shrink-0 overflow-hidden relative group">
                   {(previewUrl || formData.foto_url) ? (
                     <>
-                      <img src={getDirectDriveLink(previewUrl || formData.foto_url)} alt="Preview" className="w-full h-full object-cover" crossOrigin="anonymous" referrerPolicy="no-referrer" />
+                      <img src={getDirectDriveLink(previewUrl || formData.foto_url)} alt="Preview" className="w-full h-full object-cover" />
                       <button 
                         type="button"
                         onClick={handleClearPhoto}

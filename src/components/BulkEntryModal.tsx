@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Plus, Save, Trash2, AlertCircle, TableProperties } from 'lucide-react';
-import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Member } from '../types';
 import { formatNameTitleCase } from '../lib/utils';
@@ -170,36 +170,41 @@ export default function BulkEntryModal({ isOpen, onClose, onSuccess, members = [
     let successCount = 0;
 
     try {
-      for (const row of validRows) {
-        const docId = doc(collection(db, "members")).id;
-        
-        let nomorAnggota = "";
-        if (row.no_urut && row.tahun) nomorAnggota = `${row.no_urut}/GPSTIAA/${row.tahun}`;
-        else if (row.no_urut) nomorAnggota = row.no_urut;
+      const chunkSize = 500;
+      for (let i = 0; i < validRows.length; i += chunkSize) {
+        const chunk = validRows.slice(i, i + chunkSize);
+        const batch = writeBatch(db);
+        for (const row of chunk) {
+          const newDocRef = doc(collection(db, "members"));
+          let nomorAnggota = "";
+          if (row.no_urut && row.tahun) nomorAnggota = `${row.no_urut}/GPSTIAA/${row.tahun}`;
+          else if (row.no_urut) nomorAnggota = row.no_urut;
 
-        const memberData: Member = {
-          nomor_anggota: nomorAnggota,
-          nama_lengkap: formatNameTitleCase(row.nama_lengkap.trim()),
-          jenis_kelamin: (row.jenis_kelamin === "Pria" || row.jenis_kelamin === "Wanita") ? row.jenis_kelamin : "",
-          tempat_lahir: row.tempat_lahir.trim(),
-          tanggal_lahir: row.tanggal_lahir,
-          no_telp: row.no_telp.trim(),
-          alamat_asal: row.alamat_asal.trim(),
-          provinsi: row.provinsi?.trim() || "",
-          jenis_baptis: row.jenis_baptis,
-          keterangan_baptis: row.keterangan_baptis.trim(),
-          tanggal_masuk: row.tanggal_masuk,
-          tanggal_keluar: row.tanggal_keluar,
-          foto_url: typeof row.foto_url === 'string' ? row.foto_url.trim() : "",
-          tenantId: "gpstiaa",
-        };
+          const memberData: Member = {
+            nomor_anggota: nomorAnggota,
+            nama_lengkap: formatNameTitleCase(row.nama_lengkap.trim()),
+            jenis_kelamin: (row.jenis_kelamin === "Pria" || row.jenis_kelamin === "Wanita") ? row.jenis_kelamin : "",
+            tempat_lahir: row.tempat_lahir.trim(),
+            tanggal_lahir: row.tanggal_lahir,
+            no_telp: row.no_telp.trim(),
+            alamat_asal: row.alamat_asal.trim(),
+            provinsi: row.provinsi?.trim() || "",
+            jenis_baptis: row.jenis_baptis,
+            keterangan_baptis: row.keterangan_baptis.trim(),
+            tanggal_masuk: row.tanggal_masuk,
+            tanggal_keluar: row.tanggal_keluar,
+            foto_url: typeof row.foto_url === 'string' ? row.foto_url.trim() : "",
+            tenantId: "gpstiaa",
+          };
 
-        await setDoc(doc(db, "members", docId), {
-          ...memberData,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-        successCount++;
+          batch.set(newDocRef, {
+            ...memberData,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+          successCount++;
+        }
+        await batch.commit();
       }
       
       onSuccess(successCount);
