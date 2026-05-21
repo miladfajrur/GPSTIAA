@@ -1519,14 +1519,14 @@ export default function Dashboard() {
 
           {activeTab === 'birthdays' && (
             <div className="flex-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] flex flex-col min-h-0">
-              <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 shrink-0">
+              <div className="p-4 md:p-6 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shrink-0 relative z-10">
                 <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
                   <div>
                     <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                       <Gift className="text-blue-600 dark:text-blue-400 w-5 h-5"/> Daftar Ulang Tahun Terdekat
+                       <Gift className="text-blue-600 dark:text-blue-400 w-5 h-5"/> Daftar Ulang Tahun
                     </h2>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                      Menampilkan jemaat yang berulang tahun berdasarkan jarak hari terdekat dari <span className="font-semibold text-slate-700 dark:text-slate-200">{new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}</span>
+                      Pantau jemaat yang berulang tahun pada periode waktu tertentu.
                     </p>
                   </div>
                   <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -1561,8 +1561,8 @@ export default function Dashboard() {
 
 
               {/* Sub-tabs untuk Bulan Ini vs Terdekat */}
-                <div className="flex px-4 md:px-6 pt-2 h-10 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-x-auto whitespace-nowrap scrollbar-hide">
-                  <div className="flex space-x-4 h-full">
+                <div className="flex mt-6 h-10 border-b-2 border-transparent overflow-x-auto whitespace-nowrap scrollbar-hide">
+                  <div className="flex space-x-6 h-full px-1">
                     <button
                       onClick={() => setBirthdaySubTab('terdekat')}
                       className={`h-full px-2 text-sm font-medium border-b-2 transition-colors ${birthdaySubTab === 'terdekat' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'}`}
@@ -1597,7 +1597,7 @@ export default function Dashboard() {
                 </div>
                 
                 {birthdaySubTab === 'kustom' && (
-                  <div className="px-4 md:px-6 py-3 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 flex items-center gap-3">
+                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700 flex items-center gap-3">
                     <label className="text-sm font-medium text-slate-600 dark:text-slate-300">Pilih Bulan:</label>
                     <select
                       className="text-sm border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500"

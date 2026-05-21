@@ -51,6 +51,8 @@ export default function WorshipThemePanel() {
       type: formData.get("type") as "Ibadah Umum" | "Sekolah Minggu" | "Pemahaman Alkitab",
       date: formData.get("date") as string,
       theme: formData.get("theme") as string,
+      verse: (formData.get("verse") as string) || "",
+      description: (formData.get("description") as string) || "",
       speaker: (formData.get("speaker") as string) || "",
       tenantId: "gpstiaa",
     };
@@ -78,7 +80,9 @@ export default function WorshipThemePanel() {
           "Tanggal (YYYY-MM-DD)": "2023-12-25", 
           "Jenis (Ibadah Umum/Sekolah Minggu/Pemahaman Alkitab)": "Ibadah Umum", 
           "Tema": "Menyambut Kelahiran Juruselamat", 
-          "Pembicara (Opsional)": "Pdt. Budi" 
+          "Ayat": "Lukas 2:1-20",
+          "Deskripsi": "Ibadah spesial Natal",
+          "Pengkhotbah (Opsional)": "Pdt. Budi" 
         }
       ]);
       const wb = utils.book_new();
@@ -113,7 +117,9 @@ export default function WorshipThemePanel() {
 
         const typeStr = (row["Jenis (Ibadah Umum/Sekolah Minggu/Pemahaman Alkitab)"] || row["Jenis"] || "").toString();
         const theme = (row["Tema"] || "").toString();
-        const speaker = (row["Pembicara (Opsional)"] || row["Pembicara"] || "").toString();
+        const verse = (row["Ayat"] || "").toString();
+        const description = (row["Deskripsi"] || "").toString();
+        const speaker = (row["Pengkhotbah (Opsional)"] || row["Pembicara (Opsional)"] || row["Pembicara"] || row["Pengkhotbah"] || "").toString();
 
         if (!theme) continue;
 
@@ -123,6 +129,8 @@ export default function WorshipThemePanel() {
           type: typeStr || "Ibadah Umum",
           date: formattedDate,
           theme: theme,
+          verse: verse,
+          description: description,
           speaker: speaker,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
@@ -215,7 +223,8 @@ export default function WorshipThemePanel() {
                   <th className="p-3">Tanggal</th>
                   <th className="p-3">Jenis Ibadah</th>
                   <th className="p-3">Tema</th>
-                  <th className="p-3">Pembicara</th>
+                  <th className="p-3">Ayat</th>
+                  <th className="p-3">Pengkhotbah</th>
                   <th className="p-3 text-right">Aksi</th>
                 </tr>
               </thead>
@@ -233,6 +242,7 @@ export default function WorshipThemePanel() {
                       </span>
                     </td>
                     <td className="p-3 font-medium text-slate-800 dark:text-slate-200 max-w-xs truncate">{item.theme}</td>
+                    <td className="p-3 text-slate-600 dark:text-slate-400 max-w-xs truncate">{item.verse || "-"}</td>
                     <td className="p-3 text-slate-600 dark:text-slate-400">{item.speaker || "-"}</td>
                     <td className="p-3 text-right">
                       <div className="flex justify-end gap-1">
@@ -272,7 +282,15 @@ export default function WorshipThemePanel() {
                 <input required name="theme" defaultValue={selectedItem?.theme} placeholder="mis. Kasih Karunia" className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900" />
               </div>
               <div>
-                <label className="block mb-1 font-medium">Nama Pembicara <span className="text-slate-400 font-normal">(Opsional)</span></label>
+                <label className="block mb-1 font-medium">Ayat <span className="text-slate-400 font-normal">(Opsional)</span></label>
+                <input name="verse" defaultValue={selectedItem?.verse} placeholder="mis. Yohanes 3:16" className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900" />
+              </div>
+              <div>
+                <label className="block mb-1 font-medium">Deskripsi Singkat <span className="text-slate-400 font-normal">(Opsional)</span></label>
+                <textarea name="description" defaultValue={selectedItem?.description} placeholder="mis. Catatan tentang tema ibadah..." className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900" rows={2}></textarea>
+              </div>
+              <div>
+                <label className="block mb-1 font-medium">Nama Pengkhotbah <span className="text-slate-400 font-normal">(Opsional)</span></label>
                 <input name="speaker" defaultValue={selectedItem?.speaker} placeholder="mis. Pdt. X" className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900" />
               </div>
               <div className="flex justify-end gap-2 pt-4">

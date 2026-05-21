@@ -18,24 +18,25 @@ interface MemberModalProps {
 
 import { PROVINCES } from '../lib/constants';
 
+const defaultMember: Member = {
+  nomor_anggota: "",
+  nama_lengkap: "",
+  jenis_kelamin: "",
+  tempat_lahir: "",
+  tanggal_lahir: "",
+  alamat_asal: "",
+  no_telp: "",
+  jenis_baptis: "",
+  keterangan_baptis: "",
+  tanggal_masuk: "",
+  tanggal_keluar: "",
+  provinsi: "",
+  foto_url: "",
+  tenantId: "gpstiaa"
+};
+
 export default function MemberModal({ isOpen, onClose, onSave, initialData, members }: MemberModalProps) {
   const { addToast } = useToast();
-  const defaultMember: Member = {
-    nomor_anggota: "",
-    nama_lengkap: "",
-    jenis_kelamin: "",
-    tempat_lahir: "",
-    tanggal_lahir: "",
-    alamat_asal: "",
-    no_telp: "",
-    jenis_baptis: "",
-    keterangan_baptis: "",
-    tanggal_masuk: "",
-    tanggal_keluar: "",
-    provinsi: "",
-    foto_url: "",
-    tenantId: "gpstiaa"
-  };
 
   const [formData, setFormData] = useState<Member>(defaultMember);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -50,28 +51,66 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData, memb
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const autosaveKey = initialData?.id ? `autosave_member_${initialData.id}` : 'autosave_member_new';
+
   useEffect(() => {
-    if (initialData) {
-      setFormData(initialData);
-      setPreviewUrl(initialData.foto_url || null);
-      if (initialData.nomor_anggota) {
-        const parts = initialData.nomor_anggota.split("/GPSTIAA/");
-        if (parts.length === 2) {
-          setNoUrut(parts[0]);
-          setTahun(parts[1]);
+    if (isOpen) {
+      let dataToUse: Member | null = null;
+      let restoredFromAutosave = false;
+
+      const savedData = localStorage.getItem(autosaveKey);
+      if (savedData) {
+        try {
+          const parsed = JSON.parse(savedData);
+          dataToUse = parsed;
+          restoredFromAutosave = true;
+        } catch (e) {
+          console.error("Failed to parse autosave data", e);
+        }
+      }
+
+      if (!dataToUse) {
+        dataToUse = initialData || defaultMember;
+      }
+
+      if (dataToUse) {
+        setFormData(dataToUse);
+        setPreviewUrl(dataToUse.foto_url || null);
+        if (dataToUse.nomor_anggota) {
+          const parts = dataToUse.nomor_anggota.split("/GPSTIAA/");
+          if (parts.length === 2) {
+            setNoUrut(parts[0]);
+            setTahun(parts[1]);
+          } else {
+            setNoUrut(dataToUse.nomor_anggota);
+            setTahun("");
+          }
         } else {
-          setNoUrut(initialData.nomor_anggota);
+          setNoUrut("");
           setTahun("");
         }
       }
-    } else {
-      setFormData(defaultMember);
-      setNoUrut("");
-      setTahun("");
-      setPreviewUrl(null);
+
+      setSelectedFile(null);
+      setDuplicateError(null);
+
+      if (restoredFromAutosave) {
+        addToast("Data yang belum tersimpan berhasil dipulihkan.", "info");
+      }
     }
-    setSelectedFile(null);
-  }, [initialData, isOpen]);
+  }, [initialData, isOpen, autosaveKey, addToast]);
+
+  useEffect(() => {
+    if (isOpen) {
+      const baseData = initialData || defaultMember;
+      const isChanged = JSON.stringify(formData) !== JSON.stringify(baseData);
+      if (isChanged) {
+        localStorage.setItem(autosaveKey, JSON.stringify(formData));
+      } else {
+        localStorage.removeItem(autosaveKey);
+      }
+    }
+  }, [formData, isOpen, initialData, autosaveKey]);
 
   if (!isOpen) return null;
 
@@ -207,6 +246,31 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData, memb
     setUploadProgress(null);
   };
 
+  const handleDiscardDraft = () => {
+    const baseData = initialData || defaultMember;
+    setFormData(baseData);
+    setPreviewUrl(baseData.foto_url || null);
+    if (baseData.nomor_anggota) {
+      const parts = baseData.nomor_anggota.split("/GPSTIAA/");
+      if (parts.length === 2) {
+        setNoUrut(parts[0]);
+        setTahun(parts[1]);
+      } else {
+        setNoUrut(baseData.nomor_anggota);
+        setTahun("");
+      }
+    } else {
+      setNoUrut("");
+      setTahun("");
+    }
+    setSelectedFile(null);
+    setDuplicateError(null);
+    localStorage.removeItem(autosaveKey);
+    addToast("Konsep (draft) telah dihapus.", "info");
+  };
+
+  const hasDraft = JSON.stringify(formData) !== JSON.stringify(initialData || defaultMember);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (duplicateError) {
@@ -223,6 +287,7 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData, memb
 
     try {
       await onSave(currentData);
+      localStorage.removeItem(autosaveKey);
       onClose();
     } catch (error: any) {
       console.error(error);
@@ -474,6 +539,16 @@ export default function MemberModal({ isOpen, onClose, onSave, initialData, memb
         </div>
 
         <div className="flex items-center justify-end gap-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-6 py-4">
+          {hasDraft && (
+            <button
+              type="button"
+              onClick={handleDiscardDraft}
+              disabled={isSubmitting || isCompressing || isUploading}
+              className="mr-auto text-sm font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 focus:outline-none transition-colors"
+            >
+              Hapus Draft
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}

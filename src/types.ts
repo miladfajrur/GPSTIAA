@@ -77,6 +77,8 @@ export interface WorshipTheme {
   type: "Ibadah Umum" | "Sekolah Minggu" | "Pemahaman Alkitab";
   date: string;
   theme: string;
+  verse?: string;
+  description?: string;
   speaker: string;
   createdAt?: any;
   updatedAt?: any;

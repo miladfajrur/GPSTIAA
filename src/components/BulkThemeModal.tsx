@@ -18,6 +18,8 @@ export default function BulkThemeModal({ isOpen, onClose, onSuccess }: BulkTheme
     tanggal: "",
     jenis: "Ibadah Umum",
     tema: "",
+    ayat: "",
+    deskripsi: "",
     pembicara: ""
   });
 
@@ -53,7 +55,7 @@ export default function BulkThemeModal({ isOpen, onClose, onSuccess }: BulkTheme
     e.preventDefault();
     
     const startRowIndex = parseInt(rowIndexStr, 10);
-    const colNames = ['tanggal', 'jenis', 'tema', 'pembicara'];
+    const colNames = ['tanggal', 'jenis', 'tema', 'ayat', 'deskripsi', 'pembicara'];
     const startColIndex = colNames.indexOf(colName);
     
     if (startColIndex === -1) return;
@@ -90,7 +92,7 @@ export default function BulkThemeModal({ isOpen, onClose, onSuccess }: BulkTheme
   const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>, index: number, field: string) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const colNames = ['tanggal', 'jenis', 'tema', 'pembicara'];
+      const colNames = ['tanggal', 'jenis', 'tema', 'ayat', 'deskripsi', 'pembicara'];
       const currentColIndex = colNames.indexOf(field);
       
       let nextRowIndex = index;
@@ -151,6 +153,8 @@ export default function BulkThemeModal({ isOpen, onClose, onSuccess }: BulkTheme
           tanggal: formattedDate,
           date: formattedDate, // Compatibility with existing data
           theme: row.tema.trim(),
+          verse: row.ayat.trim(),
+          description: row.deskripsi.trim(),
           speaker: row.pembicara.trim(),
           type: typeStr,
           tenantId: "gpstiaa",
@@ -214,7 +218,9 @@ export default function BulkThemeModal({ isOpen, onClose, onSuccess }: BulkTheme
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Tanggal *</th>
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Jenis Ibadah *</th>
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Tema/Judul *</th>
-                <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Pembicara (Opsional)</th>
+                <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Ayat</th>
+                <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Deskripsi</th>
+                <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Pengkhotbah (Opsional)</th>
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700 text-center w-12">Aksi</th>
               </tr>
             </thead>
@@ -239,6 +245,12 @@ export default function BulkThemeModal({ isOpen, onClose, onSuccess }: BulkTheme
                   </td>
                   <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors">
                     <input type="text" value={row.tema} onChange={(e) => handleChange(row._localId, 'tema', e.target.value)} onKeyDown={(e) => handleKeyDown(e, index, 'tema')} data-col="tema" data-rowindex={index} className={`${inputClass}`} placeholder="Tema..." />
+                  </td>
+                  <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors">
+                    <input type="text" value={row.ayat} onChange={(e) => handleChange(row._localId, 'ayat', e.target.value)} onKeyDown={(e) => handleKeyDown(e, index, 'ayat')} data-col="ayat" data-rowindex={index} className={`${inputClass}`} placeholder="mis. Yoh 3:16" />
+                  </td>
+                  <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors">
+                    <input type="text" value={row.deskripsi} onChange={(e) => handleChange(row._localId, 'deskripsi', e.target.value)} onKeyDown={(e) => handleKeyDown(e, index, 'deskripsi')} data-col="deskripsi" data-rowindex={index} className={`${inputClass}`} placeholder="Deskripsi..." />
                   </td>
                   <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors">
                     <input type="text" value={row.pembicara} onChange={(e) => handleChange(row._localId, 'pembicara', e.target.value)} onKeyDown={(e) => handleKeyDown(e, index, 'pembicara')} data-col="pembicara" data-rowindex={index} className={`${inputClass}`} placeholder="Pdt. / Pengerja..." />
