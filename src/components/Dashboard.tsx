@@ -935,7 +935,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className={`flex h-screen w-full font-sans text-slate-800 dark:text-slate-100 overflow-hidden bg-slate-50 dark:bg-slate-900 ${isDarkMode ? 'dark' : ''}`}>
+    <div className={`flex h-[100dvh] w-full font-sans text-slate-800 dark:text-slate-100 overflow-hidden bg-slate-50 dark:bg-slate-900 ${isDarkMode ? 'dark' : ''}`}>
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
@@ -1185,7 +1185,7 @@ export default function Dashboard() {
           )}
         </header>
 
-        <div className={`flex-1 flex flex-col overflow-hidden min-h-0 ${activeTab === 'overview' ? '' : 'p-6 gap-6'}`}>
+        <div className={`flex-1 flex flex-col overflow-hidden min-h-0 ${activeTab === 'overview' ? '' : 'p-4 sm:p-6 gap-4 sm:gap-6'}`}>
           {viewingProfileId && canViewProfile ? (
             <MemberProfile 
               member={members.find(m => m.id === viewingProfileId)!} 
@@ -1644,9 +1644,11 @@ export default function Dashboard() {
                       const todayDate = new Date();
                       todayDate.setHours(0, 0, 0, 0);
                       const nextBirthdayThisYear = new Date(todayDate.getFullYear(), birthDateObj.getMonth(), birthDateObj.getDate());
-                      const hasPassed = nextBirthdayThisYear.getTime() < todayDate.getTime();
-                      const currentAge = todayDate.getFullYear() - birthDateObj.getFullYear();
-                      const nextAge = currentAge + (hasPassed ? 1 : 0);
+                      const hasPassed = nextBirthdayThisYear.getTime() <= todayDate.getTime();
+                      let currentAge = todayDate.getFullYear() - birthDateObj.getFullYear();
+                      if (!hasPassed) currentAge -= 1;
+                      if (currentAge < 0) currentAge = 0;
+                      const nextAge = currentAge + 1;
 
                       return (
                         <div 
@@ -1761,9 +1763,11 @@ export default function Dashboard() {
                               const todayDate = new Date();
                               todayDate.setHours(0, 0, 0, 0);
                               const nextBirthdayThisYear = new Date(todayDate.getFullYear(), birthDateObj.getMonth(), birthDateObj.getDate());
-                              const hasPassed = nextBirthdayThisYear.getTime() < todayDate.getTime();
-                              const currentAge = todayDate.getFullYear() - birthDateObj.getFullYear();
-                              const nextAge = currentAge + (hasPassed ? 1 : 0);
+                              const hasPassed = nextBirthdayThisYear.getTime() <= todayDate.getTime();
+                              let currentAge = todayDate.getFullYear() - birthDateObj.getFullYear();
+                              if (!hasPassed) currentAge -= 1;
+                              if (currentAge < 0) currentAge = 0;
+                              const nextAge = currentAge + 1;
 
                               return (
                                 <tr 

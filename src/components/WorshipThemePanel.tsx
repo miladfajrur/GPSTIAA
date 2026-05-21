@@ -18,6 +18,8 @@ export default function WorshipThemePanel() {
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [formDate, setFormDate] = useState("");
   const [yearFilter, setYearFilter] = useState("Semua");
+  const [sortBy, setSortBy] = useState("date_desc");
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
 
   const openModal = (item?: WorshipTheme) => {
     setSelectedItem(item);
@@ -54,6 +56,7 @@ export default function WorshipThemePanel() {
       verse: (formData.get("verse") as string) || "",
       description: (formData.get("description") as string) || "",
       speaker: (formData.get("speaker") as string) || "",
+      hasHolyCommunion: formData.get("hasHolyCommunion") === "on",
       tenantId: "gpstiaa",
     };
 
@@ -77,12 +80,13 @@ export default function WorshipThemePanel() {
       const { utils, writeFile } = await import("xlsx");
       const ws = utils.json_to_sheet([
         { 
-          "Tanggal (YYYY-MM-DD)": "2023-12-25", 
+          "Tanggal (YYYY-MM-DD atau Indonesia)": "25 Desember 2023", 
           "Jenis (Ibadah Umum/Sekolah Minggu/Pemahaman Alkitab)": "Ibadah Umum", 
           "Tema": "Menyambut Kelahiran Juruselamat", 
           "Ayat": "Lukas 2:1-20",
           "Deskripsi": "Ibadah spesial Natal",
-          "Pengkhotbah (Opsional)": "Pdt. Budi" 
+          "Pengkhotbah (Opsional)": "Pdt. Budi",
+          "Perjamuan Kudus (Ya/Tidak)": "Ya"
         }
       ]);
       const wb = utils.book_new();
@@ -92,6 +96,45 @@ export default function WorshipThemePanel() {
       console.error(e);
       addToast("Gagal mengunduh template", "error");
     }
+  };
+
+  const parseIndonesianDate = (dateStr: string) => {
+    dateStr = dateStr.trim();
+    if (!dateStr) return "";
+
+    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) return dateStr;
+    if (dateStr.match(/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/)) {
+      const [d, m, y] = dateStr.split(/[\/\-]/);
+      return `${y}-${m}-${d}`;
+    }
+
+    const textRegex = /^(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})$/;
+    const match = dateStr.match(textRegex);
+    if (match) {
+      const d = match[1].padStart(2, '0');
+      const mStr = match[2].toLowerCase();
+      
+      const monthMap: Record<string, string> = {
+        januari: "01", jan: "01",
+        februari: "02", pebruari: "02", feb: "02",
+        maret: "03", mar: "03",
+        april: "04", apr: "04",
+        mei: "05",
+        juni: "06", jun: "06",
+        juli: "07", jul: "07",
+        agustus: "08", agu: "08", aug: "08",
+        september: "09", sep: "09",
+        oktober: "10", okt: "10", oct: "10",
+        november: "11", nov: "11",
+        desember: "12", des: "12", dec: "12"
+      };
+
+      const m = monthMap[mStr];
+      if (m) {
+        return `${match[3]}-${m}-${d}`;
+      }
+    }
+    return dateStr;
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -109,17 +152,19 @@ export default function WorshipThemePanel() {
       const batch = writeBatch(db);
 
       for (const row of rows) {
-        const tglStr = row["Tanggal (YYYY-MM-DD)"] || row["Tanggal"];
+        const tglStr = row["Tanggal (YYYY-MM-DD atau Indonesia)"] || row["Tanggal (YYYY-MM-DD)"] || row["Tanggal"];
         if (!tglStr) continue;
         
-        let formattedDate = tglStr.toString();
-        // Handle excel numeric dates if needed (left simple for now, assuming YYYY-MM-DD input)
+        let formattedDate = parseIndonesianDate(tglStr.toString());
 
         const typeStr = (row["Jenis (Ibadah Umum/Sekolah Minggu/Pemahaman Alkitab)"] || row["Jenis"] || "").toString();
         const theme = (row["Tema"] || "").toString();
         const verse = (row["Ayat"] || "").toString();
         const description = (row["Deskripsi"] || "").toString();
         const speaker = (row["Pengkhotbah (Opsional)"] || row["Pembicara (Opsional)"] || row["Pembicara"] || row["Pengkhotbah"] || "").toString();
+        const perjamuanStr = (row["Perjamuan Kudus (Ya/Tidak)"] || row["Perjamuan Kudus"] || "").toString().toLowerCase();
+        
+        const hasHolyCommunion = perjamuanStr === 'ya' || perjamuanStr === 'y' || perjamuanStr === 'true';
 
         if (!theme) continue;
 
@@ -132,6 +177,7 @@ export default function WorshipThemePanel() {
           verse: verse,
           description: description,
           speaker: speaker,
+          hasHolyCommunion: hasHolyCommunion,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
@@ -157,12 +203,54 @@ export default function WorshipThemePanel() {
     return parts.length === 3 ? parts[0] : '';
   }).filter(Boolean))).sort().reverse();
 
+  const handleDeleteAll = async () => {
+    if (!window.confirm("PERINGATAN: Apakah Anda yakin ingin menghapus SEMUA data Tema Ibadah yang sedang ditampilkan? Aksi ini tidak dapat dibatalkan!")) return;
+    
+    setIsDeletingAll(true);
+    try {
+      const batch = writeBatch(db);
+      sortedFilteredItems.forEach((item) => {
+        if (item.id) {
+          batch.delete(doc(db, "worship_themes", item.id));
+        }
+      });
+      await batch.commit();
+      addToast(`Berhasil menghapus ${sortedFilteredItems.length} data.`, "success");
+    } catch (e) {
+      console.error(e);
+      addToast("Terjadi kesalahan saat menghapus data massal.", "error");
+    } finally {
+      setIsDeletingAll(false);
+    }
+  };
+
   const filteredItems = items.filter(item => {
     if (yearFilter !== "Semua") {
       const year = item.date.split('-')[0];
       if (year !== yearFilter) return false;
     }
     return true;
+  });
+
+  const sortedFilteredItems = [...filteredItems].sort((a, b) => {
+    switch (sortBy) {
+      case "date_asc":
+        return a.date.localeCompare(b.date);
+      case "date_desc":
+        return b.date.localeCompare(a.date);
+      case "created_asc": {
+        const tA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+        const tB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+        return tA - tB;
+      }
+      case "created_desc": {
+        const tA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+        const tB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+        return tB - tA;
+      }
+      default:
+        return b.date.localeCompare(a.date);
+    }
   });
 
   return (
@@ -183,6 +271,16 @@ export default function WorshipThemePanel() {
               <option key={idx} value={yr}>{yr}</option>
             ))}
           </select>
+          <select
+            className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+          >
+            <option value="date_desc">Tanggal Terbaru</option>
+            <option value="date_asc">Tanggal Terlama</option>
+            <option value="created_desc">Waktu Input Terakhir</option>
+            <option value="created_asc">Waktu Input Awal</option>
+          </select>
           <button onClick={downloadTemplate} className="text-xs px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg flex items-center gap-1.5 font-medium transition-colors">
             <Download className="w-4 h-4" /> Template Excel
           </button>
@@ -199,6 +297,14 @@ export default function WorshipThemePanel() {
             className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-2 rounded-lg font-medium flex items-center gap-1.5 transition-colors shadow-sm"
           >
             <Copy className="w-4 h-4" /> Input Massal (Paste)
+          </button>
+
+          <button
+            onClick={handleDeleteAll}
+            disabled={isDeletingAll || sortedFilteredItems.length === 0}
+            className="text-xs px-3 py-2 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-1.5 font-medium transition-colors disabled:opacity-50"
+          >
+            <Trash2 className="w-4 h-4" /> Hapus Data Terfilter
           </button>
 
           <button
@@ -229,7 +335,7 @@ export default function WorshipThemePanel() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                {filteredItems.map(item => (
+                {sortedFilteredItems.map(item => (
                   <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
                     <td className="p-3 font-mono">{formatDateDDMMYYYY(item.date)}</td>
                     <td className="p-3">
@@ -241,7 +347,14 @@ export default function WorshipThemePanel() {
                         {item.type}
                       </span>
                     </td>
-                    <td className="p-3 font-medium text-slate-800 dark:text-slate-200 max-w-xs truncate">{item.theme}</td>
+                    <td className="p-3 font-medium text-slate-800 dark:text-slate-200 max-w-xs truncate">
+                      {item.theme}
+                      {item.hasHolyCommunion && (
+                        <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50">
+                          Perjamuan Kudus
+                        </span>
+                      )}
+                    </td>
                     <td className="p-3 text-slate-600 dark:text-slate-400 max-w-xs truncate">{item.verse || "-"}</td>
                     <td className="p-3 text-slate-600 dark:text-slate-400">{item.speaker || "-"}</td>
                     <td className="p-3 text-right">
@@ -292,6 +405,10 @@ export default function WorshipThemePanel() {
               <div>
                 <label className="block mb-1 font-medium">Nama Pengkhotbah <span className="text-slate-400 font-normal">(Opsional)</span></label>
                 <input name="speaker" defaultValue={selectedItem?.speaker} placeholder="mis. Pdt. X" className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900" />
+              </div>
+              <div className="flex items-center gap-2 pt-2">
+                <input type="checkbox" id="hasHolyCommunion" name="hasHolyCommunion" defaultChecked={selectedItem?.hasHolyCommunion} className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer" />
+                <label htmlFor="hasHolyCommunion" className="font-medium cursor-pointer">Ada Perjamuan Kudus</label>
               </div>
               <div className="flex justify-end gap-2 pt-4">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 border rounded-lg dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700">Batal</button>

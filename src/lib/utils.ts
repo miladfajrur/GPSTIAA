@@ -165,6 +165,20 @@ export const getDaysToBirthday = (birthDateStr: string) => {
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 };
 
+export const calculateAge = (birthDateStr: string | undefined): number | null => {
+  if (!birthDateStr) return null;
+  const bDate = new Date(birthDateStr);
+  if (isNaN(bDate.getTime())) return null;
+
+  const today = new Date();
+  let age = today.getFullYear() - bDate.getFullYear();
+  const m = today.getMonth() - bDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < bDate.getDate())) {
+    age--;
+  }
+  return age;
+};
+
 export const isBirthdayInWeek = (birthDateStr: string, offsetWeeks: number) => {
   if (!birthDateStr) return false;
   const bDate = new Date(birthDateStr);

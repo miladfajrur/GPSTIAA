@@ -166,7 +166,7 @@ export default function DataValidationModal({ isOpen, onClose, members, onEditMe
                         className="px-3 py-1.5 text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg shadow-sm transition-colors flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
-                        Perbaiki
+                        Perbaiki (Go to)
                       </button>
                     </div>
                   </div>

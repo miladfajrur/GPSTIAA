@@ -80,6 +80,7 @@ export interface WorshipTheme {
   verse?: string;
   description?: string;
   speaker: string;
+  hasHolyCommunion?: boolean;
   createdAt?: any;
   updatedAt?: any;
 }
@@ -94,5 +95,18 @@ export interface MisiRepo {
   createdAt?: any;
   updatedAt?: any;
 }
+
+export interface MisiFinance {
+  id?: string;
+  tenantId: string;
+  date: string; // YYYY-MM-DD
+  type: "Pemasukan" | "Pengeluaran";
+  category: string;
+  amount: number;
+  description: string;
+  createdAt?: any;
+  updatedAt?: any;
+}
+
 
 

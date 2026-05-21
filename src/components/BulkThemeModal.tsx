@@ -13,6 +13,50 @@ interface BulkThemeModalProps {
 
 export default function BulkThemeModal({ isOpen, onClose, onSuccess }: BulkThemeModalProps) {
   const { addToast } = useToast();
+  
+  const parseIndonesianDate = (dateStr: string) => {
+    dateStr = dateStr.trim();
+    if (!dateStr) return "";
+
+    // if already YYYY-MM-DD
+    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) return dateStr;
+    
+    // if DD/MM/YYYY or DD-MM-YYYY
+    if (dateStr.match(/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/)) {
+      const [d, m, y] = dateStr.split(/[\/\-]/);
+      return `${y}-${m}-${d}`;
+    }
+
+    // Handle text like "12 Januari 2023" or "2 Jan 2023"
+    const textRegex = /^(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})$/;
+    const match = dateStr.match(textRegex);
+    if (match) {
+      const d = match[1].padStart(2, '0');
+      const mStr = match[2].toLowerCase();
+      
+      const monthMap: Record<string, string> = {
+        januari: "01", jan: "01",
+        februari: "02", pebruari: "02", feb: "02",
+        maret: "03", mar: "03",
+        april: "04", apr: "04",
+        mei: "05",
+        juni: "06", jun: "06",
+        juli: "07", jul: "07",
+        agustus: "08", agu: "08", aug: "08",
+        september: "09", sep: "09",
+        oktober: "10", okt: "10", oct: "10",
+        november: "11", nov: "11",
+        desember: "12", des: "12", dec: "12"
+      };
+
+      const m = monthMap[mStr];
+      if (m) {
+        return `${match[3]}-${m}-${d}`;
+      }
+    }
+    return dateStr;
+  };
+
   const createEmptyRow = () => ({
     _localId: crypto.randomUUID(),
     tanggal: "",
@@ -20,7 +64,8 @@ export default function BulkThemeModal({ isOpen, onClose, onSuccess }: BulkTheme
     tema: "",
     ayat: "",
     deskripsi: "",
-    pembicara: ""
+    pembicara: "",
+    perjamuan_kudus: false
   });
 
   const [rows, setRows] = useState(Array.from({ length: 3 }, createEmptyRow));
@@ -36,7 +81,7 @@ export default function BulkThemeModal({ isOpen, onClose, onSuccess }: BulkTheme
     setRows(prev => prev.filter(r => r._localId !== id));
   };
 
-  const handleChange = (id: string, field: string, value: string) => {
+  const handleChange = (id: string, field: string, value: string | boolean) => {
     setRows(prev => prev.map(row => 
       row._localId === id ? { ...row, [field]: value } : row
     ));
@@ -55,7 +100,7 @@ export default function BulkThemeModal({ isOpen, onClose, onSuccess }: BulkTheme
     e.preventDefault();
     
     const startRowIndex = parseInt(rowIndexStr, 10);
-    const colNames = ['tanggal', 'jenis', 'tema', 'ayat', 'deskripsi', 'pembicara'];
+    const colNames = ['tanggal', 'jenis', 'tema', 'ayat', 'deskripsi', 'pembicara', 'perjamuan_kudus'];
     const startColIndex = colNames.indexOf(colName);
     
     if (startColIndex === -1) return;
@@ -92,7 +137,7 @@ export default function BulkThemeModal({ isOpen, onClose, onSuccess }: BulkTheme
   const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>, index: number, field: string) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const colNames = ['tanggal', 'jenis', 'tema', 'ayat', 'deskripsi', 'pembicara'];
+      const colNames = ['tanggal', 'jenis', 'tema', 'ayat', 'deskripsi', 'pembicara', 'perjamuan_kudus'];
       const currentColIndex = colNames.indexOf(field);
       
       let nextRowIndex = index;
@@ -139,23 +184,19 @@ export default function BulkThemeModal({ isOpen, onClose, onSuccess }: BulkTheme
           typeStr = "Ibadah Umum";
         }
         
-        let formattedDate = row.tanggal;
-        // Basic YYYY-MM-DD or DD-MM-YYYY conversion if it's strictly DD/MM/YYYY
-        if (formattedDate.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
-            const [d, m, y] = formattedDate.split('/');
-            formattedDate = `${y}-${m}-${d}`;
-        } else if (formattedDate.match(/^\d{2}-\d{2}-\d{4}$/)) {
-            const [d, m, y] = formattedDate.split('-');
-            formattedDate = `${y}-${m}-${d}`;
-        }
+        let formattedDate = parseIndonesianDate(row.tanggal);
+        
+        let hasHolyCommunion = typeof row.perjamuan_kudus === 'boolean' 
+            ? row.perjamuan_kudus 
+            : String(row.perjamuan_kudus).toLowerCase() === 'ya' || String(row.perjamuan_kudus).toLowerCase() === 'true';
 
         batch.set(docRef, {
-          tanggal: formattedDate,
-          date: formattedDate, // Compatibility with existing data
+          date: formattedDate,
           theme: row.tema.trim(),
           verse: row.ayat.trim(),
           description: row.deskripsi.trim(),
           speaker: row.pembicara.trim(),
+          hasHolyCommunion: hasHolyCommunion,
           type: typeStr,
           tenantId: "gpstiaa",
           createdAt: serverTimestamp(),
@@ -221,6 +262,7 @@ export default function BulkThemeModal({ isOpen, onClose, onSuccess }: BulkTheme
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Ayat</th>
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Deskripsi</th>
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Pengkhotbah (Opsional)</th>
+                <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">Perjamuan Kudus</th>
                 <th className="px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700 text-center w-12">Aksi</th>
               </tr>
             </thead>
@@ -254,6 +296,9 @@ export default function BulkThemeModal({ isOpen, onClose, onSuccess }: BulkTheme
                   </td>
                   <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent transition-colors">
                     <input type="text" value={row.pembicara} onChange={(e) => handleChange(row._localId, 'pembicara', e.target.value)} onKeyDown={(e) => handleKeyDown(e, index, 'pembicara')} data-col="pembicara" data-rowindex={index} className={`${inputClass}`} placeholder="Pdt. / Pengerja..." />
+                  </td>
+                  <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent text-center transition-colors">
+                    <input type="checkbox" checked={row.perjamuan_kudus} onChange={(e) => handleChange(row._localId, 'perjamuan_kudus', e.target.checked)} className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer" />
                   </td>
 
                   <td className="px-2 py-1 border-l border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group-hover:bg-transparent text-center transition-colors">
