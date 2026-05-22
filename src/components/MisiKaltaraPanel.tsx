@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { collection, onSnapshot, query, setDoc, doc, deleteDoc, serverTimestamp, orderBy, where } from "firebase/firestore";
-import { Plus, Edit2, Trash2, ExternalLink, FileText, DollarSign, Users } from "lucide-react";
+import { Plus, Edit2, Trash2, ExternalLink, FileText, DollarSign, Users, Lock, Unlock, Key } from "lucide-react";
 import { db } from "../lib/firebase";
 import { MisiRepo } from "../types";
 import MonthYearInputMask from "./MonthYearInputMask";
@@ -9,7 +9,9 @@ import MisiKaltaraFinancePanel from "./MisiKaltaraFinancePanel";
 import MisiKaltaraMembersPanel from "./MisiKaltaraMembersPanel";
 
 export default function MisiKaltaraPanel() {
-  const [activeTab, setActiveTab] = useState<"dokumentasi" | "keuangan" | "jemaat">("dokumentasi");
+  const [activeTab, setActiveTab] = useState<"keuangan" | "keuangan_pembangunan" | "dokumentasi" | "dokumen_confidential" | "jemaat">("keuangan");
+  const [confidentialPin, setConfidentialPin] = useState("");
+  const [isConfidentialUnlocked, setIsConfidentialUnlocked] = useState(false);
 
   const [items, setItems] = useState<MisiRepo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,9 +28,14 @@ export default function MisiKaltaraPanel() {
     setIsModalOpen(true);
   };
 
+  const currentCollection = activeTab === "dokumen_confidential" ? "misi_repo_confidential" : "misi_repo";
+
   useEffect(() => {
+    if (activeTab !== "dokumentasi" && activeTab !== "dokumen_confidential") return;
+    
+    setIsLoading(true);
     const q = query(
-      collection(db, "misi_repo"),
+      collection(db, currentCollection),
       where("tenantId", "==", "gpstiaa"),
       orderBy("bulan", "desc")
     );
@@ -43,7 +50,7 @@ export default function MisiKaltaraPanel() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [activeTab, currentCollection]);
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -57,16 +64,16 @@ export default function MisiKaltaraPanel() {
     };
 
     if (selectedItem?.id) {
-      await setDoc(doc(db, "misi_repo", selectedItem.id), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+      await setDoc(doc(db, currentCollection, selectedItem.id), { ...data, updatedAt: serverTimestamp() }, { merge: true });
     } else {
-      await setDoc(doc(collection(db, "misi_repo")), { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      await setDoc(doc(collection(db, currentCollection)), { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
     }
     setIsModalOpen(false);
   };
 
   const handleDelete = async () => {
     if (itemToDelete) {
-      await deleteDoc(doc(db, "misi_repo", itemToDelete));
+      await deleteDoc(doc(db, currentCollection, itemToDelete));
       setItemToDelete(null);
     }
   };
@@ -94,18 +101,8 @@ export default function MisiKaltaraPanel() {
         {/* Tabs */}
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           <button
-            onClick={() => setActiveTab("dokumentasi")}
-            className={`px-4 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-colors ${
-              activeTab === "dokumentasi"
-                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400"
-                : "text-slate-600 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700"
-            }`}
-          >
-            <FileText className="w-4 h-4" /> Dokumentasi
-          </button>
-          <button
             onClick={() => setActiveTab("keuangan")}
-            className={`px-4 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-colors ${
+            className={`px-4 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-colors whitespace-nowrap shrink-0 ${
               activeTab === "keuangan"
                 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
                 : "text-slate-600 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700"
@@ -114,8 +111,38 @@ export default function MisiKaltaraPanel() {
             <DollarSign className="w-4 h-4" /> Keuangan
           </button>
           <button
+            onClick={() => setActiveTab("keuangan_pembangunan")}
+            className={`px-4 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-colors whitespace-nowrap shrink-0 ${
+              activeTab === "keuangan_pembangunan"
+                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
+                : "text-slate-600 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700"
+            }`}
+          >
+            <DollarSign className="w-4 h-4" /> Keuangan Pembangunan
+          </button>
+          <button
+            onClick={() => setActiveTab("dokumentasi")}
+            className={`px-4 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-colors whitespace-nowrap shrink-0 ${
+              activeTab === "dokumentasi"
+                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400"
+                : "text-slate-600 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700"
+            }`}
+          >
+            <FileText className="w-4 h-4" /> Dokumentasi
+          </button>
+          <button
+            onClick={() => setActiveTab("dokumen_confidential")}
+            className={`px-4 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-colors whitespace-nowrap shrink-0 ${
+              activeTab === "dokumen_confidential"
+                ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
+                : "text-slate-600 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700"
+            }`}
+          >
+            <Lock className="w-4 h-4" /> Dokumen Confidential
+          </button>
+          <button
             onClick={() => setActiveTab("jemaat")}
-            className={`px-4 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-colors ${
+            className={`px-4 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-colors whitespace-nowrap shrink-0 ${
               activeTab === "jemaat"
                 ? "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400"
                 : "text-slate-600 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700"
@@ -129,8 +156,48 @@ export default function MisiKaltaraPanel() {
       <div className="flex-1 flex flex-col min-h-0 p-4">
         {activeTab === "keuangan" ? (
           <MisiKaltaraFinancePanel />
+        ) : activeTab === "keuangan_pembangunan" ? (
+          <MisiKaltaraFinancePanel collectionName="misi_finance_pembangunan" />
         ) : activeTab === "jemaat" ? (
           <MisiKaltaraMembersPanel />
+        ) : activeTab === "dokumen_confidential" && !isConfidentialUnlocked ? (
+          <div className="flex flex-col items-center justify-center h-full max-w-sm mx-auto w-full">
+               <div className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-8 rounded-2xl flex flex-col items-center w-full shadow-lg">
+                 <Lock className="w-12 h-12 text-slate-400 dark:text-slate-500 mb-4" />
+                 <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">Akses Terkunci</h3>
+                 <p className="text-xs text-slate-500 dark:text-slate-400 text-center mb-6">Silakan masukkan PIN untuk mengakses Dokumen Confidential.</p>
+                 <input 
+                   type="password" 
+                   placeholder="****" 
+                   value={confidentialPin} 
+                   onChange={(e) => setConfidentialPin(e.target.value)} 
+                   className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-center tracking-[0.5em] font-mono text-xl mb-4 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-red-500 outline-none" 
+                   onKeyDown={(e) => {
+                     if (e.key === 'Enter') {
+                       if (confidentialPin === "0000") {
+                         setIsConfidentialUnlocked(true);
+                         setConfidentialPin("");
+                       } else {
+                         alert("PIN Salah");
+                       }
+                     }
+                   }}
+                 />
+                 <button 
+                   onClick={() => {
+                     if (confidentialPin === "0000") {
+                       setIsConfidentialUnlocked(true);
+                       setConfidentialPin("");
+                     } else {
+                       alert("PIN Salah");
+                     }
+                   }} 
+                   className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
+                 >
+                   <Unlock className="w-4 h-4" /> Buka Kunci
+                 </button>
+               </div>
+          </div>
         ) : (
           <div className="flex flex-col h-full overflow-hidden">
              <div className="flex flex-col sm:flex-row gap-4 mb-4 items-start sm:items-center justify-between">
@@ -144,12 +211,22 @@ export default function MisiKaltaraPanel() {
                     <option key={idx} value={yr}>{yr}</option>
                   ))}
                 </select>
-                <button
-                  onClick={() => openModal()}
-                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2 rounded-lg font-semibold flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" /> Tambah Misi
-                </button>
+                <div className="flex gap-2 items-center">
+                  {activeTab === "dokumen_confidential" && (
+                    <button
+                      onClick={() => setIsConfidentialUnlocked(false)}
+                      className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors"
+                    >
+                      <Lock className="w-4 h-4" /> Kunci Kembali
+                    </button>
+                  )}
+                  <button
+                    onClick={() => openModal()}
+                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2 rounded-lg font-semibold flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" /> Tambah {activeTab === "dokumen_confidential" ? "Dokumen" : "Misi"}
+                  </button>
+                </div>
               </div>
 
               <div className="flex-1 overflow-auto rounded-xl">
@@ -182,14 +259,14 @@ export default function MisiKaltaraPanel() {
         )}
       </div>
 
-      {isModalOpen && activeTab === "dokumentasi" && (
+      {(isModalOpen && (activeTab === "dokumentasi" || activeTab === "dokumen_confidential")) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white dark:bg-slate-800 rounded-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-100">{selectedItem ? "Edit" : "Tambah"} Dokumentasi Misi</h3>
+            <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-100">{selectedItem ? "Edit" : "Tambah"} {activeTab === "dokumen_confidential" ? "Dokumen Confidential" : "Dokumentasi Misi"}</h3>
             <form onSubmit={handleSave} className="space-y-4 text-sm text-slate-800 dark:text-slate-200">
               <div>
-                <label className="block mb-1 font-medium">Judul/Kegiatan Misi</label>
-                <input required name="title" defaultValue={selectedItem?.title} placeholder="mis. Kunjungan Pos PI" className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900" />
+                <label className="block mb-1 font-medium">{activeTab === "dokumen_confidential" ? "Nama Dokumen" : "Judul/Kegiatan Misi"}</label>
+                <input required name="title" defaultValue={selectedItem?.title} placeholder={activeTab === "dokumen_confidential" ? "mis. Data Realisasi Anggaran" : "mis. Kunjungan Pos PI"} className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
@@ -214,7 +291,7 @@ export default function MisiKaltaraPanel() {
         </div>
       )}
 
-      {itemToDelete && activeTab === "dokumentasi" && (
+      {(itemToDelete && (activeTab === "dokumentasi" || activeTab === "dokumen_confidential")) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white dark:bg-slate-800 rounded-xl p-6 max-w-sm w-full">
             <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">Hapus Data?</h3>

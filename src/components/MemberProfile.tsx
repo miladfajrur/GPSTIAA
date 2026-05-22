@@ -1,7 +1,7 @@
 import React from 'react';
 import { Member } from '../types';
 import { ArrowLeft, User, Calendar, MapPin, FileText, Phone, Cross, Heart, Info, Clock, CheckCircle, Gift } from 'lucide-react';
-import { formatNameTitleCase, getDaysToBirthday, getDirectDriveLink } from '../lib/utils';
+import { formatNameTitleCase, getDaysToBirthday, getDirectDriveLink, formatDateDDMMYYYY } from '../lib/utils';
 
 interface MemberProfileProps {
   member: Member;
@@ -89,7 +89,7 @@ export default function MemberProfile({ member, onBack }: MemberProfileProps) {
                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Tempat, Tanggal Lahir</p>
                    <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-slate-800 dark:text-slate-200">
                      <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
-                     <span>{member.tempat_lahir || '-'}, {member.tanggal_lahir ? new Date(member.tanggal_lahir).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'}) : '-'}</span>
+                     <span>{member.tempat_lahir || '-'}, {member.tanggal_lahir ? formatDateDDMMYYYY(member.tanggal_lahir) : '-'}</span>
                      {member.tanggal_lahir && (() => {
                         const birthDateObj = new Date(member.tanggal_lahir);
                         if (isNaN(birthDateObj.getTime())) return null;
@@ -173,7 +173,7 @@ export default function MemberProfile({ member, onBack }: MemberProfileProps) {
                          <Clock className="w-3.5 h-3.5" /> Tanggal Keluar
                       </p>
                       <p className="text-sm font-medium text-red-800 dark:text-red-300">
-                         {new Date(member.tanggal_keluar).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}
+                         {formatDateDDMMYYYY(member.tanggal_keluar)}
                       </p>
                    </div>
                  )}

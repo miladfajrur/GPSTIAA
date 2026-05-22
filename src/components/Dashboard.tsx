@@ -60,12 +60,14 @@ export default function Dashboard() {
   // Profile View State
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
 
   const handleManualSync = async () => {
     setIsSyncing(true);
     addToast("Menyinkronkan data dengan server...", "info");
     // Simulate a brief wait as Firebase automatically syncs, to give user feedback
     await new Promise(resolve => setTimeout(resolve, 1500));
+    setLastSyncTime(new Date());
     setIsSyncing(false);
     addToast("Data berhasil disinkronisasi", "success");
   };
@@ -99,10 +101,30 @@ export default function Dashboard() {
       if (todayBirthdays.length > 0) {
         const names = todayBirthdays.map(m => formatNameTitleCase(m.nama_lengkap)).join(', ');
         addToast(`🎉 Hari ini ulang tahun: ${names}!\nSelamat Ulang Tahun!`, 'info');
+        
+        // Show Browser Notification for admin
+        if (user?.username === 'gpsttiaa' || (!['fajrur', 'anabk', 'BEM'].includes(user?.username || ''))) {
+            if ("Notification" in window) {
+                if (Notification.permission === "granted") {
+                    new Notification("Ulang Tahun Hari Ini!", {
+                        body: `🎉 ${names} berulang tahun hari ini!`,
+                    });
+                } else if (Notification.permission !== "denied") {
+                    Notification.requestPermission().then(permission => {
+                        if (permission === "granted") {
+                            new Notification("Ulang Tahun Hari Ini!", {
+                                body: `🎉 ${names} berulang tahun hari ini!`,
+                            });
+                        }
+                    });
+                }
+            }
+        }
+        
         hasNotifiedBirthdays.current = true;
       }
     }
-  }, [members, isLoading]);
+  }, [members, isLoading, user]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -223,6 +245,7 @@ export default function Dashboard() {
         data.push({ id: doc.id, ...doc.data() } as Member);
       });
       setMembers(data);
+      setLastSyncTime(new Date());
       setIsLoading(false);
 
       if (isInitialLoad.current) {
@@ -442,7 +465,7 @@ export default function Dashboard() {
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
-    doc.text(`Total Keseluruhan Jemaat: ${members.length} Jiwa  |  Tanggal Unduh: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, 150, 70);
+    doc.text(`Total Keseluruhan Jemaat: ${members.length} Jiwa  |  Tanggal Unduh: ${formatDateDDMMYYYY(new Date().toISOString())}`, 150, 70);
     doc.setTextColor(0, 0, 0);
 
     const tableColumns = ["No", "No. Anggota", "Nama Lengkap", "L/P", "Tempat, Tanggal Lahir", "No. Telp", "Alamat Asal", "Provinsi", "Jenis Baptis", "Tgl Masuk", "Tgl Atestasi"];
@@ -1027,6 +1050,20 @@ export default function Dashboard() {
             <></>
           ) : (
             <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto justify-end">
+              {lastSyncTime && (
+                <div 
+                  className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/50 rounded-lg shadow-sm" 
+                  title={`Terhubung secara real-time. Sinkronisasi terakhir berhasil.`}
+                >
+                  <span className="relative flex h-2 w-2 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 font-mono tracking-tight whitespace-nowrap">
+                    {lastSyncTime.toLocaleTimeString('id-ID', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </span>
+                </div>
+              )}
               <button
                 onClick={handleManualSync}
                 disabled={isSyncing || isLoading}
@@ -1045,6 +1082,18 @@ export default function Dashboard() {
               >
                 {isDarkMode ? <Sun className="h-4 w-4 md:h-4 md:w-4 text-amber-500" /> : <Moon className="h-4 w-4 md:h-4 md:w-4" />}
               </button>
+
+              {/* Birthday Alert for Admin */}
+              {(user?.username === 'gpsttiaa' || (!['fajrur', 'anabk', 'BEM'].includes(user?.username || ''))) && notifications.filter(n => n.type === 'birthday').length > 0 && (
+                <button
+                  onClick={() => handleTabClick('birthdays')}
+                  className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 p-2 md:px-3 md:py-2 rounded-lg transition-all flex items-center justify-center gap-2 focus:outline-none shadow-sm animate-pulse"
+                  title="Ada jemaat yang berulang tahun hari ini!"
+                >
+                  <Gift className="h-4 w-4 md:h-4 md:w-4 shrink-0" />
+                  <span className="hidden sm:inline text-xs font-bold whitespace-nowrap">{notifications.filter(n => n.type === 'birthday').length} Ulang Tahun</span>
+                </button>
+              )}
 
               {/* Notification Bell */}
               {user?.username !== 'BEM' && (
@@ -1100,7 +1149,7 @@ export default function Dashboard() {
                                 <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">{notif.title}</h4>
                                 <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">{notif.message}</p>
                                 <span className="text-[9px] text-slate-400 dark:text-slate-500 mt-1 block">
-                                  {notif.type === 'birthday' ? 'Hari ini' : new Date(notif.dateRef).toLocaleDateString('id-ID', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'})}
+                                  {notif.type === 'birthday' ? 'Hari ini' : formatDateDDMMYYYY(notif.dateRef)}
                                 </span>
                               </div>
                             </div>
@@ -1312,7 +1361,7 @@ export default function Dashboard() {
                         <th className="p-3">Jenis Baptis</th>
                         <th className="p-3">Tgl Masuk</th>
                         <th className="p-3">Foto</th>
-                        <th className="p-3 text-right">Aksi</th>
+                        <th className="p-3 text-right print:hidden">Aksi</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -1417,7 +1466,7 @@ export default function Dashboard() {
                                   <a href={member.foto_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline hover:text-blue-700">Link Drive</a>
                                 ) : '-'}
                               </td>
-                              <td className="p-3 text-right">
+                              <td className="p-3 text-right print:hidden">
                                 {user?.username !== 'BEM' ? (
                                   <div className="flex justify-end gap-2">
                                     <button
@@ -1640,7 +1689,6 @@ export default function Dashboard() {
                       }
                       
                       const birthDateObj = new Date(m.tanggal_lahir);
-                      const displayDate = birthDateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long' });
                       const todayDate = new Date();
                       todayDate.setHours(0, 0, 0, 0);
                       const nextBirthdayThisYear = new Date(todayDate.getFullYear(), birthDateObj.getMonth(), birthDateObj.getDate());
@@ -1648,6 +1696,14 @@ export default function Dashboard() {
                       let currentAge = todayDate.getFullYear() - birthDateObj.getFullYear();
                       if (!hasPassed) currentAge -= 1;
                       if (currentAge < 0) currentAge = 0;
+                      
+                      const upcomingBirthday = new Date(nextBirthdayThisYear);
+                      if (upcomingBirthday.getTime() < todayDate.getTime() && !(isToday)) {
+                          upcomingBirthday.setFullYear(todayDate.getFullYear() + 1);
+                      }
+                      
+                      const displayDate = `${upcomingBirthday.toLocaleDateString('id-ID', { weekday: 'long' })}, ${formatDateDDMMYYYY(m.tanggal_lahir)}`;
+
                       const nextAge = currentAge + 1;
 
                       return (
@@ -1759,7 +1815,7 @@ export default function Dashboard() {
                               const isToday = days === 0;
                               const isActive = !m.tanggal_keluar;
                               const birthDateObj = new Date(m.tanggal_lahir);
-                              const displayDate = birthDateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+                              const displayDate = `${birthDateObj.toLocaleDateString('id-ID', { weekday: 'long' })}, ${formatDateDDMMYYYY(m.tanggal_lahir)}`;
                               const todayDate = new Date();
                               todayDate.setHours(0, 0, 0, 0);
                               const nextBirthdayThisYear = new Date(todayDate.getFullYear(), birthDateObj.getMonth(), birthDateObj.getDate());

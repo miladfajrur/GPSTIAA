@@ -11,6 +11,7 @@ import MonthYearInputMask from "./MonthYearInputMask";
 import { TableProperties } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useToast } from "../ToastContext";
+import { formatDateDDMMYYYY } from "../lib/utils";
 
 export default function WeeklyReportsPanel() {
   const { addToast } = useToast();
@@ -139,7 +140,7 @@ export default function WeeklyReportsPanel() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    return formatDateDDMMYYYY(dateString);
   };
 
   const handleDownloadTemplateExcel = () => {
@@ -241,6 +242,186 @@ export default function WeeklyReportsPanel() {
     });
   };
 
+  const handleExportPDFBulanan = async () => {
+    if (!['Bulan', 'Bulan Ini', 'Bulan Lalu'].includes(dateFilterMode)) {
+        addToast("Silakan gunakan filter 'Bulan Ini', 'Bulan Lalu', atau 'Bulan' untuk mengunduh laporan bulanan.", "info");
+        return;
+    }
+
+    try {
+      const { jsPDF } = await import("jspdf");
+      const autoTableModule = await import("jspdf-autotable");
+      const autoTable = autoTableModule.default;
+
+      const doc = new jsPDF("l", "pt", "a4"); // Landscape
+      
+      const img1 = new Image();
+      img1.crossOrigin = "Anonymous";
+      img1.src = "https://i.ibb.co.com/HTcTMCcr/GPSTIAA-LOGO-1.png";
+      const img2 = new Image();
+      img2.crossOrigin = "Anonymous";
+      img2.src = "https://i.ibb.co.com/zHfFFrd1/AA-2-1-2-1.png";
+
+      await Promise.all([
+        new Promise<void>((resolve) => {
+          img1.onload = () => {
+            try {
+              const canvas = document.createElement("canvas");
+              canvas.width = img1.width;
+              canvas.height = img1.height;
+              const ctx = canvas.getContext("2d");
+              if (ctx) {
+                ctx.drawImage(img1, 0, 0);
+                const dataURL = canvas.toDataURL("image/png");
+                doc.addImage(dataURL, 'PNG', 40, 30, 45, 45);
+              }
+            } catch (e) {
+              console.error("Failed to add image1", e);
+            }
+            resolve();
+          };
+          img1.onerror = () => resolve();
+        }),
+        new Promise<void>((resolve) => {
+          img2.onload = () => {
+            try {
+              const canvas = document.createElement("canvas");
+              canvas.width = img2.width;
+              canvas.height = img2.height;
+              const ctx = canvas.getContext("2d");
+              if (ctx) {
+                ctx.drawImage(img2, 0, 0);
+                const dataURL = canvas.toDataURL("image/png");
+                doc.addImage(dataURL, 'PNG', 95, 30, 45, 45);
+              }
+            } catch (e) {
+              console.error("Failed to add image2", e);
+            }
+            resolve();
+          };
+          img2.onerror = () => resolve();
+        })
+      ]);
+
+      let monthName = "";
+      const now = new Date();
+      const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+      
+      if (dateFilterMode === "Bulan Ini") {
+        monthName = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+      } else if (dateFilterMode === "Bulan Lalu") {
+        const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        monthName = `${monthNames[lastMonth.getMonth()]} ${lastMonth.getFullYear()}`;
+      } else if (dateFilterMode === "Bulan" && monthYearFilter) {
+        const parts = monthYearFilter.split('-');
+        if (parts.length === 2) {
+           monthName = `${monthNames[parseInt(parts[1], 10) - 1]} ${parts[0]}`;
+        }
+      }
+
+      // Title
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Laporan Catatan Kebaktian & Keuangan Bulanan - GPSTTIAA`, 150, 52);
+      
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Bulan: ${monthName || '-'}  |  Ibadah: ${ibadahFilter}  |  Tanggal Cetak: ${formatDateDDMMYYYY(new Date().toISOString())}`, 150, 70);
+      doc.setTextColor(0, 0, 0);
+      
+      const tableColumns = [
+        "Tanggal", "Nama Ibadah", "D/P/A", "T. Hadir", "Persembahan", "Perpuluhan", "Diakonia", "Lainnya", "Total Pemasukan"
+      ];
+
+      const tableRows = filteredReports.map(r => {
+        const hadirD = r.kehadiran_dewasa || 0;
+        const hadirP = r.kehadiran_pemuda || 0;
+        const hadirA = r.kehadiran_anak || 0;
+        const totalHadir = hadirD + hadirP + hadirA;
+        const totalPemasukan = (r.persembahan_umum || 0) + (r.perpuluhan || 0) + (r.diakonia || 0) + (r.pemasukan_lainnya || 0);
+
+        return [
+          formatDate(r.tanggal_ibadah),
+          r.nama_ibadah,
+          `${hadirD}/${hadirP}/${hadirA}`,
+          totalHadir,
+          formatRupiah(r.persembahan_umum || 0),
+          formatRupiah(r.perpuluhan || 0),
+          formatRupiah(r.diakonia || 0),
+          formatRupiah(r.pemasukan_lainnya || 0),
+          formatRupiah(totalPemasukan)
+        ];
+      });
+
+      autoTable(doc, {
+        startY: 95,
+        head: [tableColumns],
+        body: tableRows,
+        theme: 'grid',
+        headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        styles: { fontSize: 8, cellPadding: 4, lineColor: [226, 232, 240], lineWidth: 0.5 },
+        columnStyles: {
+          3: { halign: 'center' },
+          4: { halign: 'right' },
+          5: { halign: 'right' },
+          6: { halign: 'right' },
+          7: { halign: 'right' },
+          8: { halign: 'right', fontStyle: 'bold', textColor: [16, 185, 129] }
+        }
+      });
+
+      const finalY = (doc as any).lastAutoTable.finalY || 80;
+      
+      // Prepare summary data
+      const totalPersembahan = filteredReports.reduce((acc, r) => acc + (r.persembahan_umum || 0), 0);
+      const totalPerpuluhan = filteredReports.reduce((acc, r) => acc + (r.perpuluhan || 0), 0);
+      const totalDiakonia = filteredReports.reduce((acc, r) => acc + (r.diakonia || 0), 0);
+      const totalLainnya = filteredReports.reduce((acc, r) => acc + (r.pemasukan_lainnya || 0), 0);
+      const totalAllPemasukan = totalPersembahan + totalPerpuluhan + totalDiakonia + totalLainnya;
+
+      // Draw Summary box
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(40, finalY + 20, 500, 150, 5, 5, 'FD');
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 58, 138);
+      doc.text("RINGKASAN BULAN INI", 55, finalY + 40);
+      
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(50, 50, 50);
+      
+      doc.text(`Persembahan Umum:`, 55, finalY + 65);
+      doc.text(`${formatRupiah(totalPersembahan)}`, 200, finalY + 65);
+
+      doc.text(`Perpuluhan:`, 55, finalY + 85);
+      doc.text(`${formatRupiah(totalPerpuluhan)}`, 200, finalY + 85);
+
+      doc.text(`Diakonia:`, 55, finalY + 105);
+      doc.text(`${formatRupiah(totalDiakonia)}`, 200, finalY + 105);
+
+      doc.text(`Lainnya:`, 55, finalY + 125);
+      doc.text(`${formatRupiah(totalLainnya)}`, 200, finalY + 125);
+
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 58, 138);
+
+      doc.text(`Total Pemasukan Bulan ${monthName || ''}:`, 55, finalY + 155);
+      doc.setTextColor(16, 185, 129); // emerald-500
+      doc.text(`${formatRupiah(totalAllPemasukan)}`, 300, finalY + 155);
+
+      doc.save(`Laporan_Kebaktian_Bulanan_${monthName ? monthName.replace(' ', '_') : new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (e) {
+      console.error(e);
+      addToast("Gagal mengunduh laporan PDF Bulanan.", "error");
+    }
+  };
+
   const handleExportPDF = async () => {
     try {
       const { jsPDF } = await import("jspdf");
@@ -306,7 +487,7 @@ export default function WeeklyReportsPanel() {
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
-    doc.text(`Periode Laporan: ${ibadahFilter}  |  Tanggal Cetak: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, 150, 70);
+    doc.text(`Periode Laporan: ${ibadahFilter}  |  Tanggal Cetak: ${formatDateDDMMYYYY(new Date().toISOString())}`, 150, 70);
     doc.setTextColor(0, 0, 0);
     
     const tableColumns = [
@@ -405,6 +586,12 @@ export default function WeeklyReportsPanel() {
           <p className="text-xs text-slate-500 dark:text-slate-400">Arsip data kehadiran jemaat dan laporan pemasukan mingguan gereja</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={handleExportPDFBulanan}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 focus:outline-none shrink-0"
+          >
+            <Printer className="w-4 h-4" /> Unduh Laporan Bulanan
+          </button>
           <button
             onClick={handleExportPDF}
             className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 focus:outline-none"

@@ -60,6 +60,20 @@ service cloud.firestore {
       allow delete: if true;
     }
 
+    match /misi_finance_pembangunan/{financeId} {
+      allow read: if true;
+      allow create: if incoming().tenantId == 'gpstiaa';
+      allow update: if incoming().tenantId == 'gpstiaa';
+      allow delete: if true;
+    }
+    
+    match /misi_repo_confidential/{misiId} {
+      allow read: if true;
+      allow create: if incoming().tenantId == 'gpstiaa';
+      allow update: if incoming().tenantId == 'gpstiaa';
+      allow delete: if true;
+    }
+
     match /misi_members/{memberId} {
       allow read: if true;
       allow write: if true;

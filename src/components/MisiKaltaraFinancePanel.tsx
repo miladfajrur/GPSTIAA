@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { collection, onSnapshot, query, setDoc, doc, deleteDoc, serverTimestamp, orderBy, where, writeBatch } from "firebase/firestore";
-import { Plus, Edit2, Trash2, ExternalLink, List, Search, Upload } from "lucide-react";
+import { Plus, Edit2, Trash2, ExternalLink, List, Search, Upload, Printer } from "lucide-react";
 import { db } from "../lib/firebase";
 import { MisiFinance } from "../types";
 import { formatDateDDMMYYYY } from "../lib/utils";
+import DateInputMask from "./DateInputMask";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts";
 import BulkMisiFinanceModal from "./BulkMisiFinanceModal";
+import { useToast } from "../ToastContext";
 
-export default function MisiKaltaraFinancePanel() {
+export default function MisiKaltaraFinancePanel({ collectionName = "misi_finance" }: { collectionName?: string }) {
+  const { addToast } = useToast();
   const [items, setItems] = useState<MisiFinance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -17,15 +20,17 @@ export default function MisiKaltaraFinancePanel() {
   const [yearFilter, setYearFilter] = useState("Semua");
   const [showAllModal, setShowAllModal] = useState(false);
   const [isBulkEntryOpen, setIsBulkEntryOpen] = useState(false);
+  const [formDate, setFormDate] = useState("");
 
   const openModal = (item?: MisiFinance) => {
     setSelectedItem(item);
+    setFormDate(item?.date || new Date().toISOString().split('T')[0]);
     setIsModalOpen(true);
   };
 
   useEffect(() => {
     const q = query(
-      collection(db, "misi_finance"),
+      collection(db, collectionName),
       where("tenantId", "==", "gpstiaa"),
       orderBy("date", "desc")
     );
@@ -45,19 +50,41 @@ export default function MisiKaltaraFinancePanel() {
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const type = formData.get("type") as "Pemasukan" | "Pengeluaran";
+    const amount = Number(formData.get("amount"));
+    const fundingSource = formData.get("fundingSource") as string;
+
     const data = {
-      date: formData.get("date") as string,
-      type: formData.get("type") as "Pemasukan" | "Pengeluaran",
+      date: formDate,
+      type,
       category: formData.get("category") as string,
-      amount: Number(formData.get("amount")),
+      amount,
       description: formData.get("description") as string,
       tenantId: "gpstiaa",
+      ...(fundingSource ? { fundingSource } : {})
     };
 
     if (selectedItem?.id) {
-      await setDoc(doc(db, "misi_finance", selectedItem.id), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+      await setDoc(doc(db, collectionName, selectedItem.id), { ...data, updatedAt: serverTimestamp() }, { merge: true });
     } else {
-      await setDoc(doc(collection(db, "misi_finance")), { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      const batch = writeBatch(db);
+      const newDocRef = doc(collection(db, collectionName));
+      batch.set(newDocRef, { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      
+      if (collectionName === "misi_finance_pembangunan" && fundingSource === "Persembahan Misi Kaltara" && type === "Pemasukan") {
+         const expenseRef = doc(collection(db, "misi_finance"));
+         batch.set(expenseRef, {
+            date: data.date,
+            type: "Pengeluaran",
+            category: "Alokasi Pembangunan",
+            amount,
+            description: `Alokasi ke Keuangan Pembangunan otomatis: ${data.category}`,
+            tenantId: "gpstiaa",
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+         });
+      }
+      await batch.commit();
     }
     setIsModalOpen(false);
   };
@@ -65,7 +92,7 @@ export default function MisiKaltaraFinancePanel() {
   const handleBulkSave = async (data: MisiFinance[]) => {
     const batch = writeBatch(db);
     data.forEach(item => {
-      const docRef = doc(collection(db, "misi_finance"));
+      const docRef = doc(collection(db, collectionName));
       batch.set(docRef, { ...item, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
     });
     await batch.commit();
@@ -74,7 +101,7 @@ export default function MisiKaltaraFinancePanel() {
 
   const handleDelete = async () => {
     if (itemToDelete) {
-      await deleteDoc(doc(db, "misi_finance", itemToDelete));
+      await deleteDoc(doc(db, collectionName, itemToDelete));
       setItemToDelete(null);
     }
   };
@@ -134,6 +161,154 @@ export default function MisiKaltaraFinancePanel() {
 
   const rp = (num: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num);
 
+  const handleExportPDF = async () => {
+    try {
+      const { jsPDF } = await import("jspdf");
+      const autoTableModule = await import("jspdf-autotable");
+      const autoTable = autoTableModule.default;
+
+      const doc = new jsPDF("p", "pt", "a4"); // Portrait
+      
+      const img1 = new Image();
+      img1.crossOrigin = "Anonymous";
+      img1.src = "https://i.ibb.co.com/HTcTMCcr/GPSTIAA-LOGO-1.png";
+      const img2 = new Image();
+      img2.crossOrigin = "Anonymous";
+      img2.src = "https://i.ibb.co.com/zHfFFrd1/AA-2-1-2-1.png";
+
+      await Promise.all([
+        new Promise<void>((resolve) => {
+          img1.onload = () => {
+            try {
+              const canvas = document.createElement("canvas");
+              canvas.width = img1.width;
+              canvas.height = img1.height;
+              const ctx = canvas.getContext("2d");
+              if (ctx) {
+                ctx.drawImage(img1, 0, 0);
+                const dataURL = canvas.toDataURL("image/png");
+                doc.addImage(dataURL, 'PNG', 40, 30, 45, 45);
+              }
+            } catch (e) {
+              console.error("Failed to add image1", e);
+            }
+            resolve();
+          };
+          img1.onerror = () => resolve();
+        }),
+        new Promise<void>((resolve) => {
+          img2.onload = () => {
+            try {
+              const canvas = document.createElement("canvas");
+              canvas.width = img2.width;
+              canvas.height = img2.height;
+              const ctx = canvas.getContext("2d");
+              if (ctx) {
+                ctx.drawImage(img2, 0, 0);
+                const dataURL = canvas.toDataURL("image/png");
+                doc.addImage(dataURL, 'PNG', 95, 30, 45, 45);
+              }
+            } catch (e) {
+              console.error("Failed to add image2", e);
+            }
+            resolve();
+          };
+          img2.onerror = () => resolve();
+        })
+      ]);
+
+      const isPembangunan = collectionName === "misi_finance_pembangunan";
+      const title = isPembangunan ? "Laporan Keuangan Pembangunan Misi Kaltara" : "Laporan Keuangan Misi Kaltara";
+
+      // Title
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text(title, 150, 52);
+      
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Periode Cetak: ${yearFilter}  |  Tanggal: ${formatDateDDMMYYYY(new Date().toISOString())}`, 150, 70);
+      doc.setTextColor(0, 0, 0);
+      
+      const tableColumns = ["Tanggal", "Kategori / Keterangan", "Jenis", "Pemasukan", "Pengeluaran", "Subtotal Pemasukan", "Subtotal Pengeluaran"];
+      
+      let runningPemasukan = 0;
+      let runningPengeluaran = 0;
+
+      // Sort chronological for PDF
+      const sortedItems = [...filteredItems].reverse();
+
+      const tableRows = sortedItems.map(item => {
+        if (item.type === "Pemasukan") runningPemasukan += item.amount;
+        if (item.type === "Pengeluaran") runningPengeluaran += item.amount;
+        
+        return [
+          formatDateDDMMYYYY(item.date),
+          `${item.category}${item.description ? `\n- ${item.description}` : ''}`,
+          item.type,
+          item.type === "Pemasukan" ? rp(item.amount) : "-",
+          item.type === "Pengeluaran" ? rp(item.amount) : "-",
+          rp(runningPemasukan),
+          rp(runningPengeluaran)
+        ];
+      });
+
+      autoTable(doc, {
+        startY: 95,
+        head: [tableColumns],
+        body: tableRows,
+        theme: 'grid',
+        headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        styles: { fontSize: 8, cellPadding: 4, lineColor: [226, 232, 240], lineWidth: 0.5 },
+        columnStyles: {
+          3: { halign: 'right' },
+          4: { halign: 'right' },
+          5: { halign: 'right' },
+          6: { halign: 'right' }
+        }
+      });
+
+      const finalY = (doc as any).lastAutoTable.finalY || 80;
+      
+      // Draw Summary box
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(40, finalY + 20, 500, 110, 5, 5, 'FD');
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 58, 138);
+      doc.text("RINGKASAN KEUANGAN", 55, finalY + 40);
+      
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(50, 50, 50);
+      
+      doc.text(`Total Pemasukan:`, 55, finalY + 65);
+      doc.setTextColor(16, 185, 129); // emerald-500
+      doc.text(`${rp(totalPemasukan)}`, 200, finalY + 65);
+
+      doc.setTextColor(50, 50, 50);
+      doc.text(`Total Pengeluaran:`, 55, finalY + 85);
+      doc.setTextColor(239, 68, 68); // red-500
+      doc.text(`${rp(totalPengeluaran)}`, 200, finalY + 85);
+
+      doc.setTextColor(50, 50, 50);
+      doc.text(isPembangunan ? `Saldo Khusus Pembangunan:` : `Saldo Akhir:`, 55, finalY + 110);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(saldo >= 0 ? 16 : 239, saldo >= 0 ? 185 : 68, saldo >= 0 ? 129 : 68);
+      doc.text(`${rp(saldo)}`, 200, finalY + 110);
+
+      doc.save(`${title.replace(/ /g, "_")}_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (e) {
+      console.error(e);
+      addToast(`Gagal mengunduh laporan PDF ${collectionName === "misi_finance_pembangunan" ? "Pembangunan " : ""}Misi Kaltara.`, "error");
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-y-auto w-full">
       <div className="flex flex-col sm:flex-row gap-4 mb-4 items-start sm:items-center justify-between shrink-0">
@@ -147,7 +322,13 @@ export default function MisiKaltaraFinancePanel() {
             <option key={idx} value={yr}>{yr}</option>
           ))}
         </select>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handleExportPDF}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-4 py-2 rounded-lg font-semibold flex items-center gap-2"
+          >
+            <Printer className="w-4 h-4" /> Unduh Laporan {collectionName === "misi_finance_pembangunan" ? "Pembangunan" : "Misi"}
+          </button>
           <button
             onClick={() => setIsBulkEntryOpen(true)}
             className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-2 rounded-lg font-semibold flex items-center gap-2"
@@ -331,7 +512,7 @@ export default function MisiKaltaraFinancePanel() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block mb-1 font-medium">Tanggal</label>
-                  <input required type="date" name="date" defaultValue={selectedItem?.date || new Date().toISOString().split('T')[0]} className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900" />
+                  <DateInputMask required name="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} placeholder="DD/MM/YYYY" className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900" />
                 </div>
                 <div>
                   <label className="block mb-1 font-medium">Jenis</label>
@@ -342,15 +523,25 @@ export default function MisiKaltaraFinancePanel() {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2 sm:col-span-1">
+                <div>
                   <label className="block mb-1 font-medium">Kategori Keterangan</label>
                   <input required name="category" defaultValue={selectedItem?.category} placeholder="mis. Persembahan Kasih" className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900" />
                 </div>
-                <div className="col-span-2 sm:col-span-1">
+                <div>
                   <label className="block mb-1 font-medium">Jumlah (Rp)</label>
                   <input required type="number" min="0" step="1" name="amount" defaultValue={selectedItem?.amount} placeholder="100000" className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900" />
                 </div>
               </div>
+              {collectionName === "misi_finance_pembangunan" && (
+                  <div>
+                    <label className="block mb-1 font-medium">Sumber Dana</label>
+                    <select name="fundingSource" defaultValue={(selectedItem as any)?.fundingSource || "Lainnya"} className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900">
+                      <option value="Lainnya">Terpisah / Lainnya</option>
+                      <option value="Persembahan Misi Kaltara">Diambil dari Keuangan Misi Kaltara</option>
+                    </select>
+                    <p className="text-xs text-slate-500 mt-1">Jika diambil dari Keuangan Misi Kaltara, saldo Misi Kaltara akan otomatis berkurang sebesar jumlah pemasukan ini.</p>
+                  </div>
+              )}
               <div>
                 <label className="block mb-1 font-medium">Catatan Tambahan</label>
                 <textarea name="description" defaultValue={selectedItem?.description} placeholder="Opsional" rows={2} className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900" />

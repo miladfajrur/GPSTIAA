@@ -4,6 +4,7 @@ import { Plus, Edit2, Trash2, Users, Search } from "lucide-react";
 import { db } from "../lib/firebase";
 import { Member } from "../types";
 import { formatDateDDMMYYYY, calculateAge } from "../lib/utils";
+import DateInputMask from "./DateInputMask";
 
 export default function MisiKaltaraMembersPanel() {
   const [members, setMembers] = useState<Member[]>([]);
@@ -12,6 +13,7 @@ export default function MisiKaltaraMembersPanel() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | undefined>(undefined);
   const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
+  const [formTanggalLahir, setFormTanggalLahir] = useState("");
 
   useEffect(() => {
     const q = query(
@@ -38,7 +40,7 @@ export default function MisiKaltaraMembersPanel() {
       nama_lengkap: formData.get("nama_lengkap"),
       nomor_anggota: formData.get("nomor_anggota"),
       jenis_kelamin: formData.get("jenis_kelamin"),
-      tanggal_lahir: formData.get("tanggal_lahir"),
+      tanggal_lahir: formTanggalLahir,
       no_telp: formData.get("no_telp"),
       alamat_asal: formData.get("alamat_asal"),
     };
@@ -77,7 +79,7 @@ export default function MisiKaltaraMembersPanel() {
           />
         </div>
         <button
-          onClick={() => { setSelectedMember(undefined); setIsModalOpen(true); }}
+          onClick={() => { setSelectedMember(undefined); setFormTanggalLahir(""); setIsModalOpen(true); }}
           className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2 shrink-0 w-full sm:w-auto justify-center"
         >
           <Plus className="w-4 h-4" /> Tambah Jemaat
@@ -109,7 +111,7 @@ export default function MisiKaltaraMembersPanel() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => { setSelectedMember(m); setIsModalOpen(true); }} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg">
+                  <button onClick={() => { setSelectedMember(m); setFormTanggalLahir(m.tanggal_lahir || ""); setIsModalOpen(true); }} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg">
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button onClick={() => setMemberToDelete(m.id!)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-slate-800 rounded-lg">
@@ -145,7 +147,7 @@ export default function MisiKaltaraMembersPanel() {
                 </div>
                 <div>
                   <label className="block mb-1 font-medium text-slate-700 dark:text-slate-300">Tanggal Lahir</label>
-                  <input type="date" name="tanggal_lahir" defaultValue={selectedMember?.tanggal_lahir} className="w-full border dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+                  <DateInputMask name="tanggal_lahir" value={formTanggalLahir} onChange={(e) => setFormTanggalLahir(e.target.value)} placeholder="DD/MM/YYYY" className="w-full border dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
                   <label className="block mb-1 font-medium text-slate-700 dark:text-slate-300">No Telepon / WA</label>

@@ -179,8 +179,15 @@ export default function OverviewPanel({ members, onNavigate, user }: OverviewPan
                   const bDate = new Date(m.tanggal_lahir);
                   const hari = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
                   const bulan = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
-                  // Use nextBday or simplify with formatting string
-                  const dateStr = `${bDate.getDate()} ${bulan[bDate.getMonth()]}`;
+                  
+                  const today = new Date();
+                  today.setHours(0,0,0,0);
+                  const nextBday = new Date(today.getFullYear(), bDate.getMonth(), bDate.getDate());
+                  if (nextBday.getTime() < today.getTime()) {
+                    nextBday.setFullYear(today.getFullYear() + 1);
+                  }
+                  
+                  const dateStr = `${hari[nextBday.getDay()]}, ${bDate.getDate()} ${bulan[bDate.getMonth()]}`;
                   
                   return (
                     <div key={i} className="flex items-center gap-4 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
