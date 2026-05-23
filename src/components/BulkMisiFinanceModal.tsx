@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Upload, AlertCircle } from 'lucide-react';
 import { MisiFinance } from '../types';
+import { parseIndonesianDateInput } from '../lib/utils';
 
 interface BulkMisiFinanceModalProps {
   isOpen: boolean;
@@ -35,11 +36,13 @@ export default function BulkMisiFinanceModal({ isOpen, onClose, onSave }: BulkMi
         return;
       }
 
-      const date = cols[0];
+      const rawDate = cols[0];
       const type = cols[1];
       const category = cols[2];
       const amountStr = cols[3];
       const desc = cols[4] || '';
+
+      const date = parseIndonesianDateInput(rawDate.replace(/\//g, '-'));
 
       if (type !== 'Pemasukan' && type !== 'Pengeluaran') {
         setError(`Baris ${i + 1}: Jenis harus "Pemasukan" atau "Pengeluaran". Ditemukan "${type}"`);
@@ -81,7 +84,7 @@ export default function BulkMisiFinanceModal({ isOpen, onClose, onSave }: BulkMi
           <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 p-4 rounded-xl text-sm mb-4">
             <p className="font-semibold mb-2">Urutan Kolom (Pisahkan dengan Tab/Copy dari Excel):</p>
             <ol className="list-decimal pl-5 space-y-1">
-              <li><strong>Tanggal</strong> (Wajib, format YYYY-MM-DD)</li>
+              <li><strong>Tanggal</strong> (Wajib, format DD-MM-YYYY atau YYYY-MM-DD)</li>
               <li><strong>Jenis</strong> (Wajib, "Pemasukan" atau "Pengeluaran")</li>
               <li><strong>Kategori</strong> (Wajib)</li>
               <li><strong>Jumlah</strong> (Wajib, angka saja/boleh pakai titik)</li>
@@ -93,7 +96,7 @@ export default function BulkMisiFinanceModal({ isOpen, onClose, onSave }: BulkMi
             value={dataText}
             onChange={(e) => setDataText(e.target.value)}
             className="w-full h-48 border dark:border-slate-700 rounded-xl p-4 bg-slate-50 dark:bg-slate-900 text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-            placeholder={`2024-05-01\tPemasukan\tPersembahan\t1500000\tIbadah Raya\n2024-05-02\tPengeluaran\tKonsumsi\t500000\tRapat Pengurus`}
+            placeholder={`01-05-2024\tPemasukan\tPersembahan\t1500000\tIbadah Raya\n02-05-2024\tPengeluaran\tKonsumsi\t500000\tRapat Pengurus`}
           />
 
           {error && (

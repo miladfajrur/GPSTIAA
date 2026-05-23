@@ -5,7 +5,7 @@ import { db } from "../lib/firebase";
 import { MisiFinance } from "../types";
 import { formatDateDDMMYYYY } from "../lib/utils";
 import DateInputMask from "./DateInputMask";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import BulkMisiFinanceModal from "./BulkMisiFinanceModal";
 import { useToast } from "../ToastContext";
 
@@ -18,6 +18,11 @@ export default function MisiKaltaraFinancePanel({ collectionName = "misi_finance
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
   const [yearFilter, setYearFilter] = useState("Semua");
+  const [startDateFilter, setStartDateFilter] = useState("");
+  const [endDateFilter, setEndDateFilter] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [detailModalType, setDetailModalType] = useState<"Semua" | "Pemasukan" | "Pengeluaran" | null>(null);
+
   const [showAllModal, setShowAllModal] = useState(false);
   const [isBulkEntryOpen, setIsBulkEntryOpen] = useState(false);
   const [formDate, setFormDate] = useState("");
@@ -45,7 +50,7 @@ export default function MisiKaltaraFinancePanel({ collectionName = "misi_finance
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [collectionName]);
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -63,6 +68,19 @@ export default function MisiKaltaraFinancePanel({ collectionName = "misi_finance
       tenantId: "gpstiaa",
       ...(fundingSource ? { fundingSource } : {})
     };
+
+    const isDuplicate = items.some(item => 
+      item.id !== selectedItem?.id &&
+      item.date === data.date && 
+      item.amount === data.amount && 
+      item.category === data.category && 
+      item.description === data.description
+    );
+    
+    if (isDuplicate) {
+        addToast("Data dengan tanggal, nominal, dan keterangan yang sama sudah ada!", "error");
+        return;
+    }
 
     if (selectedItem?.id) {
       await setDoc(doc(db, collectionName, selectedItem.id), { ...data, updatedAt: serverTimestamp() }, { merge: true });
@@ -90,13 +108,38 @@ export default function MisiKaltaraFinancePanel({ collectionName = "misi_finance
   };
 
   const handleBulkSave = async (data: MisiFinance[]) => {
+    let duplicateCount = 0;
     const batch = writeBatch(db);
+    const newItemsSet = new Set<string>();
+
     data.forEach(item => {
-      const docRef = doc(collection(db, collectionName));
-      batch.set(docRef, { ...item, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      const isDuplicateInDb = items.some(dbItem => 
+        dbItem.date === item.date && 
+        dbItem.amount === item.amount && 
+        dbItem.category === item.category && 
+        dbItem.description === item.description
+      );
+      
+      const itemKey = `${item.date}-${item.amount}-${item.category}-${item.description}`;
+      const isDuplicateInCurrentBatch = newItemsSet.has(itemKey);
+
+      if (isDuplicateInDb || isDuplicateInCurrentBatch) {
+         duplicateCount++;
+      } else {
+         newItemsSet.add(itemKey);
+         const docRef = doc(collection(db, collectionName));
+         batch.set(docRef, { ...item, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      }
     });
+
     await batch.commit();
     setIsBulkEntryOpen(false);
+
+    if (duplicateCount > 0) {
+      addToast(`${duplicateCount} data ganda diabaikan.`, "info");
+    } else {
+      addToast("Data berhasil ditambahkan.", "success");
+    }
   };
 
   const handleDelete = async () => {
@@ -113,10 +156,21 @@ export default function MisiKaltaraFinancePanel({ collectionName = "misi_finance
   }).filter(Boolean))).sort().reverse();
 
   const filteredItems = items.filter(item => {
-    if (yearFilter !== "Semua") {
+    if (yearFilter === "Kustom") {
+      if (startDateFilter && item.date < startDateFilter) return false;
+      if (endDateFilter && item.date > endDateFilter) return false;
+    } else if (yearFilter !== "Semua") {
       const year = item.date.split('-')[0];
       if (year !== yearFilter) return false;
     }
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matchCategory = item.category.toLowerCase().includes(query);
+      const matchDescription = item.description?.toLowerCase().includes(query);
+      if (!matchCategory && !matchDescription) return false;
+    }
+
     return true;
   });
 
@@ -131,7 +185,7 @@ export default function MisiKaltaraFinancePanel({ collectionName = "misi_finance
     const aggregated: Record<string, { month: string; Pemasukan: number; Pengeluaran: number; sortIdx: number }> = {};
     
     // Initialize months in order
-    if (yearFilter !== "Semua") {
+    if (yearFilter !== "Semua" && yearFilter !== "Kustom") {
       months.forEach((m, idx) => {
         aggregated[m] = { month: m, Pemasukan: 0, Pengeluaran: 0, sortIdx: idx };
       });
@@ -147,7 +201,7 @@ export default function MisiKaltaraFinancePanel({ collectionName = "misi_finance
       });
       return Object.values(aggregated).sort((a, b) => a.sortIdx - b.sortIdx);
     } else {
-      // Group by year if "Semua" is selected
+      // Group by year if "Semua" or "Kustom" is selected
       filteredItems.forEach(item => {
         const year = item.date.split("-")[0];
         if (!aggregated[year]) {
@@ -218,7 +272,7 @@ export default function MisiKaltaraFinancePanel({ collectionName = "misi_finance
       ]);
 
       const isPembangunan = collectionName === "misi_finance_pembangunan";
-      const title = isPembangunan ? "Laporan Keuangan Pembangunan Misi Kaltara" : "Laporan Keuangan Misi Kaltara";
+      const title = isPembangunan ? "Laporan Keuangan Pembangunan Misi Kaltara" : "Laporan Keuangan Utama Misi Kaltara";
 
       // Title
       doc.setFontSize(16);
@@ -228,7 +282,7 @@ export default function MisiKaltaraFinancePanel({ collectionName = "misi_finance
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(100, 100, 100);
-      doc.text(`Periode Cetak: ${yearFilter}  |  Tanggal: ${formatDateDDMMYYYY(new Date().toISOString())}`, 150, 70);
+      doc.text(`Periode Cetak: ${yearFilter === "Kustom" ? `${startDateFilter ? formatDateDDMMYYYY(startDateFilter) : '...'} s/d ${endDateFilter ? formatDateDDMMYYYY(endDateFilter) : '...'}` : yearFilter}  |  Tanggal: ${formatDateDDMMYYYY(new Date().toISOString())}`, 150, 70);
       doc.setTextColor(0, 0, 0);
       
       const tableColumns = ["Tanggal", "Kategori / Keterangan", "Jenis", "Pemasukan", "Pengeluaran", "Subtotal Pemasukan", "Subtotal Pengeluaran"];
@@ -312,16 +366,53 @@ export default function MisiKaltaraFinancePanel({ collectionName = "misi_finance
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-y-auto w-full">
       <div className="flex flex-col sm:flex-row gap-4 mb-4 items-start sm:items-center justify-between shrink-0">
-        <select
-          className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500"
-          value={yearFilter}
-          onChange={(e) => setYearFilter(e.target.value)}
-        >
-          <option value="Semua">Semua Waktu</option>
-          {uniqueYears.map((yr, idx) => (
-            <option key={idx} value={yr}>{yr}</option>
-          ))}
-        </select>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input 
+              type="text"
+              placeholder="Cari kategori/keterangan..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg pl-9 pr-3 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500 w-full sm:w-64"
+            />
+          </div>
+          <select
+            className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500"
+            value={yearFilter}
+            onChange={(e) => {
+              setYearFilter(e.target.value);
+              if (e.target.value !== "Kustom") {
+                setStartDateFilter("");
+                setEndDateFilter("");
+              }
+            }}
+          >
+            <option value="Semua">Semua Waktu</option>
+            <option value="Kustom">Kustom Tanggal</option>
+            {uniqueYears.map((yr, idx) => (
+              <option key={idx} value={yr}>{yr}</option>
+            ))}
+          </select>
+
+          {yearFilter === "Kustom" && (
+            <div className="flex items-center gap-2">
+              <input 
+                type="date" 
+                value={startDateFilter}
+                onChange={(e) => setStartDateFilter(e.target.value)}
+                className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <span className="text-slate-500">-</span>
+              <input 
+                type="date" 
+                value={endDateFilter}
+                onChange={(e) => setEndDateFilter(e.target.value)}
+                className="text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={handleExportPDF}
@@ -346,8 +437,8 @@ export default function MisiKaltaraFinancePanel({ collectionName = "misi_finance
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 shrink-0">
-        <div className="bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 shadow-sm flex flex-col justify-center relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-10">
+        <div onClick={() => setDetailModalType('Pemasukan')} className="bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer hover:shadow-md transition-shadow group">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
             <svg className="w-12 h-12 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
             </svg>
@@ -355,8 +446,8 @@ export default function MisiKaltaraFinancePanel({ collectionName = "misi_finance
           <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">Total Pemasukan</p>
           <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{rp(totalPemasukan)}</p>
         </div>
-        <div className="bg-white dark:bg-slate-900 border border-red-200 dark:border-red-800 rounded-xl p-4 shadow-sm flex flex-col justify-center relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-10">
+        <div onClick={() => setDetailModalType('Pengeluaran')} className="bg-white dark:bg-slate-900 border border-red-200 dark:border-red-800 rounded-xl p-4 shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer hover:shadow-md transition-shadow group">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
             <svg className="w-12 h-12 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0v-8m0 8l-8-8-4 4-6-6" />
             </svg>
@@ -364,7 +455,7 @@ export default function MisiKaltaraFinancePanel({ collectionName = "misi_finance
           <p className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider mb-1">Total Pengeluaran</p>
           <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{rp(totalPengeluaran)}</p>
         </div>
-        <div className={`border rounded-xl p-4 shadow-sm flex flex-col justify-center relative overflow-hidden ${saldo >= 0 ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800' : 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800'}`}>
+        <div onClick={() => setDetailModalType('Semua')} className={`border rounded-xl p-4 shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer hover:shadow-md transition-shadow group ${saldo >= 0 ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800' : 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800'}`}>
           <p className={`text-xs font-semibold uppercase tracking-wider mb-1 ${saldo >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>Saldo Akhir</p>
           <p className={`text-xl font-bold ${saldo >= 0 ? 'text-blue-700 dark:text-blue-300' : 'text-orange-700 dark:text-orange-300'}`}>{rp(saldo)}</p>
         </div>
@@ -377,7 +468,7 @@ export default function MisiKaltaraFinancePanel({ collectionName = "misi_finance
           <div className="flex-1 min-h-0 w-full text-xs">
             {chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 10, right: 10, left: 20, bottom: 20 }}>
+                <LineChart data={chartData} margin={{ top: 10, right: 10, left: 20, bottom: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.2} />
                   <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#64748b'}} dy={10} />
                   <YAxis 
@@ -387,14 +478,14 @@ export default function MisiKaltaraFinancePanel({ collectionName = "misi_finance
                     tickFormatter={(value) => `Rp${(value/1000000).toFixed(1)}Jt`} 
                   />
                   <Tooltip 
-                    cursor={{fill: '#334155', opacity: 0.1}}
+                    cursor={{ stroke: '#94a3b8', strokeWidth: 1, strokeDasharray: '3 3' }}
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                     formatter={(value: number) => rp(value)}
                   />
                   <Legend verticalAlign="top" height={36} iconType="circle" />
-                  <Bar dataKey="Pemasukan" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                  <Bar dataKey="Pengeluaran" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                </BarChart>
+                  <Line type="monotone" dataKey="Pemasukan" stroke="#10b981" strokeWidth={3} activeDot={{ r: 6 }} dot={{ r: 4, strokeWidth: 2 }} />
+                  <Line type="monotone" dataKey="Pengeluaran" stroke="#ef4444" strokeWidth={3} activeDot={{ r: 6 }} dot={{ r: 4, strokeWidth: 2 }} />
+                </LineChart>
               </ResponsiveContainer>
             ) : (
                 <div className="h-full w-full flex items-center justify-center text-slate-400">Tidak ada data untuk grafik</div>
@@ -443,7 +534,7 @@ export default function MisiKaltaraFinancePanel({ collectionName = "misi_finance
                 {filteredItems.length > 10 && (
                   <div className="p-3 text-center bg-slate-50 dark:bg-slate-800/50">
                     <button 
-                      onClick={() => setShowAllModal(true)}
+                      onClick={() => setDetailModalType('Semua')}
                       className="text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                     >
                       Lihat {filteredItems.length - 10} Transaksi Lainnya
@@ -464,16 +555,23 @@ export default function MisiKaltaraFinancePanel({ collectionName = "misi_finance
         />
       )}
 
-      {showAllModal && (
+      {detailModalType && (() => {
+        const modalItems = detailModalType === 'Semua' ? filteredItems : filteredItems.filter(i => i.type === detailModalType);
+        return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl shadow-xl flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Semua Riwayat Transaksi</h3>
-              <button onClick={() => setShowAllModal(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-500">Tutup</button>
+              <div>
+                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">
+                  {detailModalType === 'Semua' ? 'Semua Riwayat Transaksi' : `Riwayat Transaksi ${detailModalType}`}
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">Total {modalItems.length} transaksi</p>
+              </div>
+              <button onClick={() => setDetailModalType(null)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-500">Tutup</button>
             </div>
             <div className="flex-1 overflow-y-auto w-full p-0">
               <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredItems.map(item => (
+                {modalItems.map(item => (
                   <div key={item.id} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
                     <div className="flex justify-between items-start mb-1">
                       <div className="flex gap-2 items-center">
@@ -483,8 +581,8 @@ export default function MisiKaltaraFinancePanel({ collectionName = "misi_finance
                         <span className="text-xs font-mono text-slate-500">{formatDateDDMMYYYY(item.date)}</span>
                       </div>
                       <div className="flex gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => { setShowAllModal(false); openModal(item); }} className="p-1 text-slate-400 hover:text-blue-500"><Edit2 className="w-4 h-4" /></button>
-                        <button onClick={() => { setShowAllModal(false); setItemToDelete(item.id!); }} className="p-1 text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                        <button onClick={() => { setDetailModalType(null); openModal(item); }} className="p-1 text-slate-400 hover:text-blue-500"><Edit2 className="w-4 h-4" /></button>
+                        <button onClick={() => { setDetailModalType(null); setItemToDelete(item.id!); }} className="p-1 text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </div>
                     <div className="flex justify-between items-end mt-2">
@@ -502,7 +600,8 @@ export default function MisiKaltaraFinancePanel({ collectionName = "misi_finance
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">

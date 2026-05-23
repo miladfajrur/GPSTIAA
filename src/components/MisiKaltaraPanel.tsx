@@ -108,7 +108,7 @@ export default function MisiKaltaraPanel() {
                 : "text-slate-600 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700"
             }`}
           >
-            <DollarSign className="w-4 h-4" /> Keuangan
+            <DollarSign className="w-4 h-4" /> Keuangan Utama
           </button>
           <button
             onClick={() => setActiveTab("keuangan_pembangunan")}
