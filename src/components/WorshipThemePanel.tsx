@@ -51,12 +51,13 @@ export default function WorshipThemePanel() {
     const formData = new FormData(e.currentTarget);
     const data = {
       type: formData.get("type") as "Ibadah Umum" | "Sekolah Minggu" | "Pemahaman Alkitab",
-      date: formData.get("date") as string,
+      date: formDate,
       theme: formData.get("theme") as string,
       verse: (formData.get("verse") as string) || "",
       description: (formData.get("description") as string) || "",
       speaker: (formData.get("speaker") as string) || "",
       hasHolyCommunion: formData.get("hasHolyCommunion") === "on",
+      liturgyLink: (formData.get("liturgyLink") as string) || "",
       tenantId: "gpstiaa",
     };
 
@@ -86,7 +87,8 @@ export default function WorshipThemePanel() {
           "Ayat": "Lukas 2:1-20",
           "Deskripsi": "Ibadah spesial Natal",
           "Pengkhotbah (Opsional)": "Pdt. Budi",
-          "Perjamuan Kudus (Ya/Tidak)": "Ya"
+          "Perjamuan Kudus (Ya/Tidak)": "Ya",
+          "Link Liturgi (Opsional)": "https://docs.google.com/..."
         }
       ]);
       const wb = utils.book_new();
@@ -163,6 +165,7 @@ export default function WorshipThemePanel() {
         const description = (row["Deskripsi"] || "").toString();
         const speaker = (row["Pengkhotbah (Opsional)"] || row["Pembicara (Opsional)"] || row["Pembicara"] || row["Pengkhotbah"] || "").toString();
         const perjamuanStr = (row["Perjamuan Kudus (Ya/Tidak)"] || row["Perjamuan Kudus"] || "").toString().toLowerCase();
+        const liturgyLink = (row["Link Liturgi (Opsional)"] || row["Link Liturgi"] || "").toString();
         
         const hasHolyCommunion = perjamuanStr === 'ya' || perjamuanStr === 'y' || perjamuanStr === 'true';
 
@@ -178,6 +181,7 @@ export default function WorshipThemePanel() {
           description: description,
           speaker: speaker,
           hasHolyCommunion: hasHolyCommunion,
+          liturgyLink: liturgyLink,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
@@ -348,7 +352,13 @@ export default function WorshipThemePanel() {
                       </span>
                     </td>
                     <td className="p-3 font-medium text-slate-800 dark:text-slate-200 max-w-xs truncate">
-                      {item.theme}
+                      {item.liturgyLink ? (
+                        <a href={item.liturgyLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 hover:underline dark:text-blue-400 dark:hover:text-blue-300">
+                          {item.theme}
+                        </a>
+                      ) : (
+                        item.theme
+                      )}
                       {item.hasHolyCommunion && (
                         <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50">
                           Perjamuan Kudus
@@ -393,6 +403,10 @@ export default function WorshipThemePanel() {
               <div>
                 <label className="block mb-1 font-medium">Tema / Judul Khotbah</label>
                 <input required name="theme" defaultValue={selectedItem?.theme} placeholder="mis. Kasih Karunia" className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900" />
+              </div>
+              <div>
+                <label className="block mb-1 font-medium">Link Liturgi (Opsional)</label>
+                <input type="url" name="liturgyLink" defaultValue={selectedItem?.liturgyLink} placeholder="https://docs.google.com/..." className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900" />
               </div>
               <div>
                 <label className="block mb-1 font-medium">Ayat <span className="text-slate-400 font-normal">(Opsional)</span></label>

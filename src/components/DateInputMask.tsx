@@ -11,11 +11,11 @@ export default function DateInputMask({ name, value, onChange, ...rest }: DateIn
   const [localValue, setLocalValue] = useState("");
 
   useEffect(() => {
-    // When the parent (formData) provides a YYYY-MM-DD value, format it to DD-MM-YYYY for display
-    if (value && value.includes('-') && value.split('-')[0].length === 4) {
+    // When the parent (formData) provides a YYYY-MM-DD value, format it to DD/MM/YYYY for display
+    if (value && typeof value === 'string' && value.includes('-') && value.split('-')[0].length === 4) {
       setLocalValue(toIndonesianDateInput(value));
     } else {
-      setLocalValue(value || "");
+      setLocalValue(typeof value === 'string' ? value : "");
     }
   }, [value]);
 

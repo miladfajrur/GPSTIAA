@@ -1,28 +1,43 @@
-export const formatDateDDMMYYYY = (dateString: string | undefined | null) => {
+export const formatDateDDMMYYYY = (dateString: any) => {
   if (!dateString) return '-';
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return dateString;
+  if (typeof dateString === 'string' && dateString.includes('-') && dateString.split('-')[0].length !== 4) {
+    return dateString.replace(/-/g, '/');
+  }
+  
+  let date: Date;
+  if (typeof dateString?.toDate === 'function') {
+    date = dateString.toDate();
+  } else {
+    date = new Date(dateString);
+  }
+  
+  if (isNaN(date.getTime())) return typeof dateString === 'string' ? dateString : '-';
   const day = String(date.getDate()).padStart(2, '0');
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const year = date.getFullYear();
-  return `${day}-${month}-${year}`;
+  return `${day}/${month}/${year}`;
 };
 
-export const formatDateDDMMYYYY_WithMonthName = (dateString: string | undefined | null) => {
+export const formatDateDDMMYYYY_WithMonthName = (dateString: any) => {
   if (!dateString) return '-';
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return dateString;
+  let date: Date;
+  if (typeof dateString?.toDate === 'function') {
+    date = dateString.toDate();
+  } else {
+    date = new Date(dateString);
+  }
+  if (isNaN(date.getTime())) return typeof dateString === 'string' ? dateString : '-';
   return date.toLocaleDateString('id-ID', {day: '2-digit', month: 'long', year: 'numeric'});
 };
 
-// Input Formatting (from YYYY-MM-DD to DD-MM-YYYY)
-export const toIndonesianDateInput = (dateString: string | undefined | null) => {
-  if (!dateString) return '';
+// Input Formatting (from YYYY-MM-DD to DD/MM/YYYY)
+export const toIndonesianDateInput = (dateString: any) => {
+  if (!dateString || typeof dateString !== 'string') return '';
   const parts = dateString.split('-'); // typically YYYY-MM-DD from DB
   if (parts.length === 3) {
     if (parts[0].length === 4) {
-      // It's YYYY-MM-DD, return DD-MM-YYYY
-      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+      // It's YYYY-MM-DD, return DD/MM/YYYY
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
     }
   }
   return dateString;
@@ -32,18 +47,25 @@ export const toIndonesianDateInput = (dateString: string | undefined | null) => 
 export const maskDateInput = (value: string) => {
   const v = value.replace(/\D/g, '');
   if (v.length >= 5) {
-    return `${v.slice(0, 2)}-${v.slice(2, 4)}-${v.slice(4, 8)}`;
+    return `${v.slice(0, 2)}/${v.slice(2, 4)}/${v.slice(4, 8)}`;
   } else if (v.length >= 3) {
-    return `${v.slice(0, 2)}-${v.slice(2)}`;
+    return `${v.slice(0, 2)}/${v.slice(2)}`;
   }
   return v;
 };
 
-// Output parsing (from typed DD-MM-YYYY to DB YYYY-MM-DD)
+// Output parsing (from typed DD/MM/YYYY to DB YYYY-MM-DD)
 export const parseIndonesianDateInput = (value: string) => {
-  const parts = value.split('-');
-  if (parts.length === 3 && parts[2].length === 4) {
-    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+  if (value.includes('/')) {
+    const parts = value.split('/');
+    if (parts.length === 3 && parts[2].length === 4) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+  } else if (value.includes('-')) {
+    const parts = value.split('-');
+    if (parts.length === 3 && parts[2].length === 4) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
   }
   return value; // If incomplete or wrong, return raw to avoid breaking state prematurely
 };

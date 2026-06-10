@@ -63,6 +63,8 @@ export interface DocumentItem {
   id?: string;
   tenantId: string;
   title: string;
+  letterNumber?: string;
+  sourceOrDest?: string;
   category: "Masuk" | "Keluar";
   date: string;
   driveLink: string;
@@ -81,6 +83,7 @@ export interface WorshipTheme {
   description?: string;
   speaker: string;
   hasHolyCommunion?: boolean;
+  liturgyLink?: string;
   createdAt?: any;
   updatedAt?: any;
 }

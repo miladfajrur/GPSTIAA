@@ -47,8 +47,10 @@ export default function DocumentPanel() {
     const formData = new FormData(e.currentTarget);
     const data = {
       title: formData.get("title") as string,
+      letterNumber: (formData.get("letterNumber") as string) || "",
+      sourceOrDest: (formData.get("sourceOrDest") as string) || "",
       category: formData.get("category") as "Masuk" | "Keluar",
-      date: formData.get("date") as string,
+      date: formDate,
       driveLink: formData.get("driveLink") as string,
       description: formData.get("description") as string,
       tenantId: "gpstiaa",
@@ -133,7 +135,10 @@ export default function DocumentPanel() {
                     <FileText className={`w-5 h-5 shrink-0 mt-0.5 ${item.category === 'Masuk' ? 'text-emerald-500' : 'text-amber-500'}`} />
                     <div>
                       <h3 className="font-bold text-slate-800 dark:text-slate-100 break-words line-clamp-2">{item.title}</h3>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${item.category === 'Masuk' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{item.category}</span>
+                      <div className="flex gap-2 items-center mt-1">
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${item.category === 'Masuk' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>{item.category}</span>
+                        {item.letterNumber && <span className="text-[10px] font-mono bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 px-1.5 py-0.5 rounded">{item.letterNumber}</span>}
+                      </div>
                     </div>
                   </div>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -141,8 +146,11 @@ export default function DocumentPanel() {
                     <button onClick={() => setItemToDelete(item.id!)} className="p-1 text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 </div>
-                <p className="text-xs font-mono text-slate-500 dark:text-slate-400 mb-2 mt-2">Tgl: {formatDateDDMMYYYY(item.date)}</p>
-                <p className="text-sm text-slate-600 dark:text-slate-300 line-clamp-2 mb-4">{item.description || "Tidak ada rincian"}</p>
+                <div className="space-y-1 mb-3">
+                  <p className="text-xs font-mono text-slate-500 dark:text-slate-400">Tgl: {formatDateDDMMYYYY(item.date)}</p>
+                  {item.sourceOrDest && <p className="text-xs text-slate-500 dark:text-slate-400"><span className="font-semibold">{item.category === 'Masuk' ? 'Dari:' : 'Ke:'}</span> {item.sourceOrDest}</p>}
+                </div>
+                <p className="text-sm text-slate-600 dark:text-slate-300 line-clamp-2 mb-4">{item.description || "Tidak ada keterangan"}</p>
                 <a href={item.driveLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-500 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800">
                   <ExternalLink className="w-3.5 h-3.5" /> Buka Dokumen
                 </a>
@@ -154,14 +162,18 @@ export default function DocumentPanel() {
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-800 rounded-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-100">{selectedItem ? "Edit" : "Tambah"} Dokumen</h3>
+          <div className="bg-white dark:bg-slate-800 rounded-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-100">{selectedItem ? "Edit" : "Tambah"} Arsip Surat</h3>
             <form onSubmit={handleSave} className="space-y-4 text-sm text-slate-800 dark:text-slate-200">
               <div>
-                <label className="block mb-1 font-medium">Judul Dokumen / Nomor Surat</label>
-                <input required name="title" defaultValue={selectedItem?.title} placeholder="mis. Surat Undangan Rapat" className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900" />
+                <label className="block mb-1 font-medium">Perihal Surat</label>
+                <input required name="title" defaultValue={selectedItem?.title} placeholder="mis. Undangan Rapat Majelis" className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900" />
               </div>
               <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block mb-1 font-medium">Nomor Surat <span className="text-slate-400 font-normal">(Opsional)</span></label>
+                  <input name="letterNumber" defaultValue={selectedItem?.letterNumber} placeholder="01/SURAT/..." className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900" />
+                </div>
                 <div>
                   <label className="block mb-1 font-medium">Kategori</label>
                   <select required name="category" defaultValue={selectedItem?.category || "Masuk"} className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900">
@@ -169,14 +181,20 @@ export default function DocumentPanel() {
                     <option value="Keluar">Keluar</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block mb-1 font-medium">Tanggal</label>
-                  <DateInputMask required name="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} placeholder="DD-MM-YYYY" className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900" />
+              </div>
+              <div>
+                <label className="block mb-1 font-medium">Asal / Tujuan Surat <span className="text-slate-400 font-normal">(Opsional)</span></label>
+                <input name="sourceOrDest" defaultValue={selectedItem?.sourceOrDest} placeholder="mis. Sinode Wilayah / Majelis Jemaat" className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="block mb-1 font-medium">Tanggal Surat</label>
+                  <DateInputMask required name="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} placeholder="DD/MM/YYYY" className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900" />
                 </div>
               </div>
               <div>
                 <label className="block mb-1 font-medium">Link Dokumen (G-Drive / PDF)</label>
-                <input required type="url" name="driveLink" defaultValue={selectedItem?.driveLink} placeholder="https://..." className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900" />
+                <input required type="url" name="driveLink" defaultValue={selectedItem?.driveLink} placeholder="https://drive.google.com/..." className="w-full border dark:border-slate-600 rounded-lg p-2 dark:bg-slate-900" />
               </div>
               <div>
                 <label className="block mb-1 font-medium">Keterangan Tambahan</label>
